@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release-build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: linux-x86_64
+            archive_name: mojo-linux-x86_64.tar.gz
+            asset_path: build/mojo
+          - os: macos-14
+            target: macos-arm64
+            archive_name: mojo-macos-arm64.tar.gz
+            asset_path: build/mojo
+          - os: macos-13
+            target: macos-x86_64
+            archive_name: mojo-macos-x86_64.tar.gz
+            asset_path: build/mojo
+          - os: windows-2022
+            target: windows-x64
+            archive_name: mojo-windows-x64.zip
+            asset_path: build/Release/mojo.exe
+            triplet: x64-windows
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # --- Linux Dependencies ---
+    - name: Install Dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev
+
+    # --- macOS Dependencies ---
+    - name: Install Dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install curl gumbo-parser
+
+    # --- Windows Dependencies ---
+    - name: Install Dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        vcpkg install curl gumbo --triplet ${{ matrix.triplet }}
+        vcpkg integrate install
+
+    # --- Config & Build ---
+    - name: Configure CMake
+      shell: bash
+      run: |
+        mkdir build
+        cd build
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+        else
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+        fi
+
+    - name: Build
+      run: |
+        cmake --build build --config Release
+
+    # --- Package (Linux/macOS) ---
+    - name: Package Binary (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        cd build
+        tar -czvf ../${{ matrix.archive_name }} mojo
+
+    # --- Package (Windows) ---
+    - name: Package Binary (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        cd build/Release
+        7z a ../../${{ matrix.archive_name }} mojo.exe
+
+    # --- Upload Release Asset ---
+    - name: Upload Release Asset
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: ${{ matrix.archive_name }}

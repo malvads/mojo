@@ -47,12 +47,15 @@ jobs:
 
     # --- Build (Standard) ---
     - name: Configure CMake
+      shell: bash
       run: |
         mkdir build
         cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release
-      env:
-         CMAKE_TOOLCHAIN_FILE: ${{ runner.os == 'Windows' && '$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake' || '' }}
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+        else
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+        fi
 
     - name: Build
       run: |
