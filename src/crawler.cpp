@@ -219,4 +219,38 @@ void Crawler::save_markdown(const std::string& url, const std::string& content) 
     }
 }
 
+void Crawler::save_file(const std::string& url, const std::string& content, const std::string& extension) {
+    std::string filename;
+    if (tree_structure_) {
+        filename = Url::to_filename(url);
+    } else {
+        filename = Url::to_flat_filename(url);
+    }
+    
+    // Ensure filename ends with the correct extension if it was forced to .md by Url helpers
+    if (filename.size() > 3 && filename.substr(filename.size() - 3) == ".md") {
+        filename = filename.substr(0, filename.size() - 3) + extension;
+    }
+
+    try {
+        std::filesystem::path path(output_dir_);
+        path /= filename;
+        
+        if (path.has_parent_path()) {
+            std::filesystem::create_directories(path.parent_path());
+        }
+        
+        std::ofstream file(path, std::ios::binary);
+        if (file.is_open()) {
+            file.write(content.data(), content.size());
+            file.close();
+            Logger::success("Downloaded: " + path.string());
+        } else {
+            Logger::error("Failed to write to file: " + path.string());
+        }
+    } catch (...) {
+        Logger::error("FS Error: " + filename);
+    }
+}
+
 }
