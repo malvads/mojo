@@ -35,6 +35,13 @@ You can download the latest pre-compiled binaries for Windows, macOS, and Linux 
   - **Tree Mode**: Preserves the original website hierarchy for context-aware RAG applications.
   - **Flat Mode**: Flattens structure for simple bulk ingestion pipelines.
 - **Noise Reduction**: Filters out non-content URLs (like `javascript:`) and handles redirects to ensure only unique, valid content is indexed.
+- **Resource Filtering**: Automatically skips images to save bandwidth while downloading PDF files directly for comprehensive data collection.
+
+## Video Example
+
+Check out Mojo in action:
+
+[![Mojo Demo](https://img.youtube.com/vi/Ue4Rcsa-4hA/0.jpg)](https://www.youtube.com/watch?v=Ue4Rcsa-4hA)
 
 ## Usage Examples
 
