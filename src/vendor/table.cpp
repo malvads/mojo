@@ -1,7 +1,7 @@
 // Copyright (c) Tim Gromeyer
 // Licensed under the MIT License - https://opensource.org/licenses/MIT
 
-#include "table.h"
+#include "vendor/table.h"
 
 #include <iomanip>
 #include <iostream>
