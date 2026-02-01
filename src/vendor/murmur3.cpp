@@ -4,6 +4,7 @@
 // Platform-specific functions and macros
 
 #if defined(_MSC_VER)
+#include <stdlib.h>
 #define ROTL64(x, y) _rotl64(x, y)
 #else
 static inline uint64_t rotl64(uint64_t x, int8_t r) {
