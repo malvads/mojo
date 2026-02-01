@@ -4,6 +4,7 @@ namespace Mojo {
 
 enum class Status {
     Ok = 200,
+    NotFound = 404,
     Error = 500,
     Timeout = 504,
     NetworkError = 503,

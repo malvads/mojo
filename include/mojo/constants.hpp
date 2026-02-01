@@ -1,5 +1,8 @@
 #pragma once
 #include <string>
+#include <map>
+#include <chrono>
+#include <vector>
 
 namespace Mojo {
 namespace Constants {
@@ -15,6 +18,70 @@ static constexpr const char* USER_AGENT = "Mojo/1.0";
 static constexpr size_t DEFAULT_BLOOM_FILTER_SIZE = 1000000;
 static constexpr int DEFAULT_BLOOM_FILTER_HASHES = 7;
 static constexpr int DEFAULT_PROXY_RETRIES = 3;
+
+inline const std::map<std::string, std::string>& get_mime_map() {
+    static const std::map<std::string, std::string> map = {
+        {"application/pdf", ".pdf"},
+        {"application/msword", ".doc"},
+        {"application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"},
+        {"application/vnd.ms-excel", ".xls"},
+        {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx"},
+        {"application/vnd.ms-powerpoint", ".ppt"},
+        {"application/vnd.openxmlformats-officedocument.presentationml.presentation", ".pptx"},
+        {"text/csv", ".csv"},
+        {"application/zip", ".zip"},
+        {"application/x-tar", ".tar"},
+        {"application/gzip", ".gz"},
+        {"application/json", ".json"},
+        {"application/xml", ".xml"},
+        {"text/xml", ".xml"}
+    };
+    return map;
+}
+
+inline std::string get_file_extension(const std::string& content_type, const std::string& url) {
+    const auto& mime_map = get_mime_map();
+    
+    for (const auto& [mime, extension] : mime_map) {
+        if (content_type.find(mime) != std::string::npos) {
+            return extension;
+        }
+    }
+
+    std::string url_lower = url;
+    for(auto& c : url_lower) c = tolower(c);
+    
+    static const std::vector<std::string> known_exts = {
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", 
+        ".csv", ".zip", ".tar", ".gz", ".json", ".xml"
+    };
+    
+    for (const auto& known : known_exts) {
+        if (url_lower.length() >= known.length() && 
+            url_lower.substr(url_lower.length() - known.length()) == known) {
+            return known;
+        }
+    }
+
+    return "";
+}
+
+inline bool is_downloadable_mime(const std::string& content_type) {
+    if (content_type.empty()) return false;
+    const auto& mime_map = get_mime_map();
+    for (const auto& [mime, extension] : mime_map) {
+        if (content_type.find(mime) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+inline std::chrono::milliseconds get_backoff_time(int attempt) {
+    if (attempt <= 0) return std::chrono::milliseconds(0);
+    // 1s, 2s, 4s... converted to ms
+    return std::chrono::milliseconds(1000 * (1 << (attempt - 1)));
+}
 
 } // namespace Constants
 } // namespace Mojo

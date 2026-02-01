@@ -45,17 +45,17 @@ You can download the latest pre-compiled binaries for Windows, macOS, and Linux 
 ```mermaid
 graph TD
     subgraph "Typical (Selenium/Puppeteer)"
-    A[Start] --> B["🔴 Launch Browser <br/> w/ Proxy A"]
+    A[Start] --> B["Launch Browser <br/> w/ Proxy A"]
     B --> C[Visit Page 1]
-    C --> D[🔴 Kill Browser]
-    D --> E["🔴 Launch Browser <br/> w/ Proxy B"]
+    C --> D[Kill Browser]
+    D --> E["Launch Browser <br/> w/ Proxy B"]
     E --> F[Visit Page 2]
     end
     
     subgraph "Mojo (Magic Gateway)"
-    H[Start] --> I["🟢 Launch Browser Once <br/> (Proxy = Mojo Localhost)"]
+    H[Start] --> I["Launch Browser Once <br/> (Proxy = Mojo Localhost)"]
     I --> J[Visit Page 1]
-    J -- "Traffic" --> K{Mojo Gateway}
+    J -- "Traffic" --> K{Mojo Gateway (Proxy Pool Rotation)}
     K -- "Auto-Rotate" --> L[External Proxy A]
     I --> M[Visit Page 2]
     M -- "Traffic" --> K

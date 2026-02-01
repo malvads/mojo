@@ -162,7 +162,6 @@ Response CurlClient::head(const std::string& url) {
         response.success = (response_code >= 200 && response_code < 300);
     }
     
-    // Reset NOBODY
     curl_easy_setopt(curl_, CURLOPT_NOBODY, 0L);
     
     return response;

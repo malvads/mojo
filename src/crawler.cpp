@@ -6,6 +6,7 @@
 #include "mojo/logger.hpp"
 #include "mojo/url.hpp"
 #include "mojo/constants.hpp"
+#include "mojo/statuses.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -63,7 +64,6 @@ void Crawler::start(const std::string& start_url) {
             return;
         }
 
-        // Launch Browser
         if (!BrowserLauncher::launch(path, cdp_port_, headless_, p_url)) {
             Logger::error("Failed to launch browser.");
             return;
@@ -162,7 +162,6 @@ bool Crawler::fetch_with_retry(HttpClient& client, const std::string& url, int d
 
         Response res = client.get(url);
 
-        // Aborted due to image Content-Type
         if (!res.success && res.error == "Skipped: Image detected") {
             Logger::info("Skipped (Content-Type Image): " + url);
             return true;
@@ -173,7 +172,7 @@ bool Crawler::fetch_with_retry(HttpClient& client, const std::string& url, int d
             proxy_pool_.report(*proxy_opt, ok);
         }
 
-        bool page_success = (res.success || res.status_code == 404) && res.status_code != 403 && res.status_code != 429;
+        bool page_success = (res.success || res.status_code == static_cast<long>(Status::NotFound)) && res.status_code != 403 && res.status_code != 429;
         if (page_success) {
             handle_response(url, depth, res);
             return true;
@@ -182,9 +181,7 @@ bool Crawler::fetch_with_retry(HttpClient& client, const std::string& url, int d
         if (attempt == Constants::MAX_RETRIES) {
             Logger::error("Failed: " + url + " (" + res.error + ") - Max retries reached");
         } else {
-            // Exponential Backoff: 1s, 2s, 4s...
-            int sleep_ms = 1000 * (1 << (attempt - 1));
-            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
+            std::this_thread::sleep_for(Constants::get_backoff_time(attempt));
         }
     }
 
@@ -192,15 +189,17 @@ bool Crawler::fetch_with_retry(HttpClient& client, const std::string& url, int d
 }
 
 void Crawler::handle_response(const std::string& url, int depth, const Response& res) {
-    if (res.status_code != 200) {
+    if (res.status_code != static_cast<long>(Status::Ok)) {
         Logger::warn("HTTP " + std::to_string(res.status_code) + ": " + url);
         return;
     }
 
     std::string base_url = !res.effective_url.empty() ? res.effective_url : url;
+    
+    std::string ext = Constants::get_file_extension(res.content_type, base_url);
 
-    if (res.content_type == "application/pdf" || base_url.substr(base_url.length() - 4) == ".pdf") {
-        save_file(base_url, res.body, ".pdf");
+    if (!ext.empty()) {
+        save_file(base_url, res.body, ext);
         return;
     }
 
