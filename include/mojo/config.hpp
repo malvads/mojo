@@ -13,9 +13,13 @@ struct Config {
     std::vector<std::string> urls;
     std::string output_dir = Constants::DEFAULT_OUTPUT_DIR;
     bool tree_structure = true;
+    bool render_js = false;
+    std::string browser_path;
+    bool headless = true;
     bool show_help = false;
 
     static Config parse(int argc, char* argv[]);
+    static void print_usage(const char* prog_name);
 };
 
 }

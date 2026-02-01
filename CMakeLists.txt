@@ -12,6 +12,8 @@ find_package(CURL REQUIRED)
 find_library(GUMBO_LIBRARY NAMES gumbo gumbo-parser REQUIRED)
 find_path(GUMBO_INCLUDE_DIR NAMES gumbo.h REQUIRED)
 find_package(Threads REQUIRED)
+find_package(nlohmann_json REQUIRED)
+find_library(WEBSOCKETS_LIBRARY NAMES websockets REQUIRED)
 
 # Include Directories
 include_directories(
@@ -31,10 +33,7 @@ add_executable(mojo ${SOURCES})
 target_link_libraries(mojo PRIVATE 
     ${CURL_LIBRARIES}
     ${GUMBO_LIBRARY}
+    ${WEBSOCKETS_LIBRARY}
+    nlohmann_json::nlohmann_json
     Threads::Threads
 )
-
-if (WIN32)
-    # Windows specific definitions if needed
-    add_definitions(-DCURL_STATICLIB -DNOMINMAX)
-endif()

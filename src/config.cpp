@@ -40,11 +40,34 @@ Config Config::parse(int argc, char* argv[]) {
             }
         } else if (arg == "--flat") {
             config.tree_structure = false;
+        } else if (arg == "--render") {
+            config.render_js = true;
+        } else if (arg == "--browser") {
+            if (i + 1 < argc) {
+                config.browser_path = argv[++i];
+            }
+        } else if (arg == "--no-headless") {
+            config.headless = false;
         } else {
             config.urls.push_back(arg);
         }
     }
     return config;
+}
+
+void Config::print_usage(const char* prog_name) {
+    std::cout << "Usage: " << prog_name << " [options] <url1> [url2] ...\n"
+              << "Options:\n"
+              << "  -d, --depth <n>       Crawling depth (default: 0)\n"
+              << "  -t, --threads <n>     Number of threads (default: 4)\n"
+              << "  -p, --proxy <url>     Single proxy (e.g., socks5://127.0.0.1:9050)\n"
+              << "  --proxy-list <file>   File containing list of proxies\n"
+              << "  -o, --output <dir>    Output directory (default: mojo_out)\n"
+              << "  --flat                Use flat structure (default: tree)\n"
+              << "  --render              Enable JavaScript rendering (Experimental)\n"
+              << "  --browser <path>      Path to Chromium/Chrome executable\n"
+              << "  --no-headless         Run browser in windowed mode (debug only)\n"
+              << "  -h, --help            Show this help message\n";
 }
 
 }

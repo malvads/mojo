@@ -10,15 +10,15 @@
 
 #include "mojo/proxy_pool.hpp"
 #include "mojo/bloom_filter.hpp"
+#include "mojo/http_client.hpp"
 
 namespace Mojo {
-class Client;
-struct Response;
 
 class Crawler {
 public:
     Crawler(int max_depth, int threads, 
             std::string output_dir, bool tree_structure,
+            bool render_js = false,
             const std::vector<std::string>& proxies = {});
     void start(const std::string& start_url);
 
@@ -40,10 +40,11 @@ private:
     std::atomic<int> active_workers_{0};
     std::atomic<bool> done_{false};
     std::string start_domain_;
+    bool render_js_;
 
     void worker_loop();
-    void process_task(Client& client, std::string url, int depth);
-    bool fetch_with_retry(Client& client, const std::string& url, int depth);
+    void process_task(HttpClient& client, std::string url, int depth);
+    bool fetch_with_retry(HttpClient& client, const std::string& url, int depth);
     void handle_response(const std::string& url, int depth, const Response& res);
     void save_markdown(const std::string& url, const std::string& content);
     void save_file(const std::string& url, const std::string& content, const std::string& extension);

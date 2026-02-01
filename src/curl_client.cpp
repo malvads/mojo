@@ -1,6 +1,7 @@
-#include "mojo/client.hpp"
+#include "mojo/curl_client.hpp"
 #include "mojo/logger.hpp"
 #include "mojo/constants.hpp"
+#include "mojo/statuses.hpp"
 #include <curl/curl.h>
 
 namespace Mojo {
@@ -14,7 +15,7 @@ namespace {
 
     size_t write_callback(void* contents, size_t size, size_t nmemb, void* userp) {
         RequestContext* ctx = static_cast<RequestContext*>(userp);
-        if (ctx->is_image) return 0; // Abort if identified as image
+        if (ctx->is_image) return 0;
 
         size_t total_size = size * nmemb;
         ctx->body->append(static_cast<char*>(contents), total_size);
@@ -26,22 +27,17 @@ namespace {
         RequestContext* ctx = static_cast<RequestContext*>(userp);
         
         std::string header(buffer, total_size);
-        // Normalize to lowercase for checking logic, but maybe store original? No, lowercase is fine for detection.
         std::string header_lower = header;
         for (char& c : header_lower) c = std::tolower(c);
 
         if (header_lower.find("content-type:") != std::string::npos) {
-            // Check if content-type contains "image/"
             if (header_lower.find("image/") != std::string::npos) {
                 ctx->is_image = true;
-                return 0; // Signal libcurl to abort transfer
+                return 0;
             }
-            // Capture the value
-            size_t colon = header.find(':'); // Use original case for splitting
+            size_t colon = header.find(':');
             if (colon != std::string::npos) {
-                 // Trim whitespace
                  std::string val = header.substr(colon + 1);
-                 // Simple trim
                  val.erase(0, val.find_first_not_of(" \t\r\n"));
                  val.erase(val.find_last_not_of(" \t\r\n") + 1);
                  ctx->content_type = val;
@@ -51,29 +47,26 @@ namespace {
     }
 }
 
-Client::Client() {
+CurlClient::CurlClient() {
     curl_ = curl_easy_init();
     if (!curl_) {
         Logger::error("Failed to initialize CURL handle");
-        return;
     }
 }
 
-Client::~Client() {
+CurlClient::~CurlClient() {
     if (curl_) {
         curl_easy_cleanup(curl_);
     }
 }
 
-void Client::set_proxy(const std::string& proxy) {
+void CurlClient::set_proxy(const std::string& proxy) {
     if (curl_) {
         curl_easy_setopt(curl_, CURLOPT_PROXY, proxy.c_str());
-    } else {
-        curl_easy_setopt(curl_, CURLOPT_PROXY, ""); 
     }
 }
 
-Response Client::get(const std::string& url) {
+Response CurlClient::get(const std::string& url) {
     Response response;
     if (!curl_) {
         response.error = "CURL not initialized";
@@ -94,15 +87,18 @@ Response Client::get(const std::string& url) {
     curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
     curl_easy_setopt(curl_, CURLOPT_TIMEOUT, static_cast<long>(Constants::REQUEST_TIMEOUT_SECONDS));
 
+
     CURLcode res = curl_easy_perform(curl_);
     
     if (res != CURLE_OK) {
         if (ctx.is_image) {
             response.success = false;
             response.error = "Skipped: Image detected";
+            response.status_code = static_cast<long>(Status::Ok); // Treated as OK but skipped
         } else {
             response.success = false;
             response.error = curl_easy_strerror(res);
+            response.status_code = static_cast<long>(Status::NetworkError);
             return response;
         }
     }
@@ -122,7 +118,7 @@ Response Client::get(const std::string& url) {
     response.body = std::move(buffer);
     response.content_type = ctx.content_type;
     
-    if (response_code >= 400) {
+    if (response_code >= static_cast<long>(MaxCode::ClientError)) {
         response.success = false;
         response.error = "HTTP " + std::to_string(response_code);
     } else {

@@ -33,7 +33,12 @@ You can download the latest pre-compiled binaries for Windows, macOS, and Linux 
 - **Proxies**:
   - **Protocol Support**: Rotates between SOCKS4, SOCKS5, and HTTP proxies.
   - **Auto Pruning**: Automatically detects and prunes dead or rate-limited proxies (403/429 errors) from the pool.
+  - **Auto Pruning**: Automatically detects and prunes dead or rate-limited proxies (403/429 errors) from the pool.
   - **Priority Selection**: Automatically prioritizes SOCKS5 proxies for improved performance.
+- **JavaScript Rendering (slower)**:
+  - **Full Browser Simulation**: Uses a headless Chromium instance to execute JavaScript and render dynamic content (SPAs, React, Vue, etc.).
+  - **Stealth Mode**: Leverages native Chromium with minimal flags for maximum invisibility.
+  - **Performance**: While slower than raw HTTP crawling, it ensures 100% fidelity for dynamic sites.
 
 ## Video Example
 
@@ -47,6 +52,13 @@ Check out Mojo in action:
 Crawl a documentation site to depth 2 and save it as structured Markdown.
 ```bash
 ./mojo -d 2 https://docs.example.com
+```
+
+### JavaScript Crawl
+Render dynamic content using a headless browser.
+> **Note**: This mode is slower than standard crawling as it launches a full Chromium instance to execute JavaScript. Use this for SPAs (Single Page Applications) or sites that require JS to display content.
+```bash
+./mojo --render https://spa-example.com
 ```
 
 ### Dataset Preparation (Flat Output)
@@ -91,17 +103,21 @@ Inside the engine, Mojo manages proxies using a **Priority Queue**, ensuring the
 ### Prerequisites
 - C++17 Compiler (GCC/Clang/MSVC)
 - **libcurl** (Network)
+- **libcurl** (Network)
 - **libgumbo** (HTML Parsing)
+- **libwebsockets** (WebSocket Communication)
+- **Google Chrome** or **Chromium** (Runtime dependency for JS rendering)
 
 ### Linux (Ubuntu/Debian)
 ```bash
-sudo apt-get install build-essential libcurl4-openssl-dev libgumbo-dev
+sudo apt-get install build-essential libcurl4-openssl-dev libgumbo-dev libwebsockets-dev chromium
 make
 ```
 
 ### macOS
 ```bash
-brew install curl gumbo-parser
+brew install curl gumbo-parser libwebsockets
+brew install --cask google-chrome
 make
 ```
 
