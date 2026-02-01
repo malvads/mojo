@@ -12,6 +12,8 @@
 #include "mojo/bloom_filter.hpp"
 
 namespace Mojo {
+class Client;
+struct Response;
 
 class Crawler {
 public:
