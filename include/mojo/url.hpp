@@ -17,6 +17,7 @@ public:
     static bool is_same_domain(const std::string& url1, const std::string& url2);
     static std::string to_filename(const std::string& url);
     static std::string to_flat_filename(const std::string& url);
+    static bool is_image(const std::string& url);
 };
 
 }

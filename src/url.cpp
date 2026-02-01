@@ -87,4 +87,31 @@ std::string Url::to_flat_filename(const std::string& url) {
     return path;
 }
 
+
+bool Url::is_image(const std::string& url) {
+    if (url.empty()) return false;
+    
+    std::string path = parse(url).path;
+    if (path.empty()) return false;
+    
+    // Find extension
+    size_t last_dot = path.find_last_of('.');
+    if (last_dot == std::string::npos) return false;
+    
+    std::string ext = path.substr(last_dot);
+    
+    // Normalize to lowercase
+    for (char& c : ext) c = std::tolower(c);
+    
+    static const std::vector<std::string> images = {
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico", ".tiff", ".avif"
+    };
+    
+    for (const auto& image_ext : images) {
+        if (ext == image_ext) return true;
+    }
+    
+    return false;
+}
+
 }

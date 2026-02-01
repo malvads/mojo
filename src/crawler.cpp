@@ -79,6 +79,13 @@ void Crawler::worker_loop() {
         
         // Retry Loop (Max 3 attempts)
         for (int attempt = 1; attempt <= 3; ++attempt) {
+            // Optimization: Check extension before fetching
+            if (Url::is_image(current_url)) {
+                Logger::info("Skipping image URL: " + current_url);
+                fetch_success = true;
+                break;
+            }
+
             auto proxy_opt = proxy_pool_.get_proxy();
             if (proxy_opt) {
                 client.set_proxy(proxy_opt->url);
@@ -93,6 +100,13 @@ void Crawler::worker_loop() {
             Logger::info(log_msg);
             
             Response res = client.get(current_url);
+            
+            // Check if aborted due to image content type
+            if (!res.success && res.error == "Skipped: Image detected") {
+                Logger::info("Skipped (Content-Type Image): " + current_url);
+                fetch_success = true;
+                break;
+            }
             
             if (proxy_opt) {
                 bool ok = true;

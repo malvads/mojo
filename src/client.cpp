@@ -5,10 +5,35 @@
 namespace Mojo {
 
 namespace {
+    struct RequestContext {
+        std::string* body;
+        bool is_image = false;
+    };
+
     size_t write_callback(void* contents, size_t size, size_t nmemb, void* userp) {
+        RequestContext* ctx = static_cast<RequestContext*>(userp);
+        if (ctx->is_image) return 0; // Abort if identified as image
+
         size_t total_size = size * nmemb;
-        std::string* str = static_cast<std::string*>(userp);
-        str->append(static_cast<char*>(contents), total_size);
+        ctx->body->append(static_cast<char*>(contents), total_size);
+        return total_size;
+    }
+
+    size_t header_callback(char* buffer, size_t size, size_t nitems, void* userp) {
+        size_t total_size = size * nitems;
+        RequestContext* ctx = static_cast<RequestContext*>(userp);
+        
+        std::string header(buffer, total_size);
+        // Normalize to lowercase for checking
+        for (char& c : header) c = std::tolower(c);
+
+        if (header.find("content-type:") != std::string::npos) {
+            // Check if content-type contains "image/"
+            if (header.find("image/") != std::string::npos) {
+                ctx->is_image = true;
+                return 0; // Signal libcurl to abort transfer
+            }
+        }
         return total_size;
     }
 }
@@ -31,8 +56,6 @@ void Client::set_proxy(const std::string& proxy) {
     if (curl_) {
         curl_easy_setopt(curl_, CURLOPT_PROXY, proxy.c_str());
     } else {
-        // Clear proxy if empty string passed? Or assume caller handles logic.
-        // libcurl clears proxy if set to empty string.
         curl_easy_setopt(curl_, CURLOPT_PROXY, ""); 
     }
 }
@@ -45,22 +68,33 @@ Response Client::get(const std::string& url) {
     }
 
     std::string buffer;
+    RequestContext ctx;
+    ctx.body = &buffer;
     
     curl_easy_setopt(curl_, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &buffer);
+    curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &ctx);
+    curl_easy_setopt(curl_, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt(curl_, CURLOPT_HEADERDATA, &ctx);
     curl_easy_setopt(curl_, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl_, CURLOPT_USERAGENT, "Mojo/1.0");
     curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
-    curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 3L); // Reduced timeout to 3s for speed
+    curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 3L);
 
     CURLcode res = curl_easy_perform(curl_);
     
     if (res != CURLE_OK) {
-        response.success = false;
-        response.error = curl_easy_strerror(res);
-        // Logger::warn("CURL error: " + response.error); // Let caller decide if warn/error
-        return response;
+        if (ctx.is_image) {
+            response.success = false;
+            response.error = "Skipped: Image detected";
+            // We can return early, but maybe we want status code if available? 
+            // Usually aborted transfer might not have status code set yet or partially.
+            // But let's check info anyway.
+        } else {
+            response.success = false;
+            response.error = curl_easy_strerror(res);
+            return response;
+        }
     }
 
     long response_code;
