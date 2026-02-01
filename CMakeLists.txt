@@ -30,12 +30,21 @@ file(GLOB_RECURSE SOURCES "src/*.cpp")
 # Executable
 add_executable(mojo ${SOURCES})
 
+# Handle yaml-cpp target differences across versions/OSs
+if(TARGET yaml-cpp::yaml-cpp)
+    set(YAML_CPP_LIB yaml-cpp::yaml-cpp)
+elseif(TARGET yaml-cpp)
+    set(YAML_CPP_LIB yaml-cpp)
+else()
+    set(YAML_CPP_LIB ${YAML_CPP_LIBRARIES})
+endif()
+
 # Linking
 target_link_libraries(mojo PRIVATE 
     ${CURL_LIBRARIES}
     ${GUMBO_LIBRARY}
     ${WEBSOCKETS_LIBRARY}
     nlohmann_json::nlohmann_json
-    yaml-cpp::yaml-cpp
+    ${YAML_CPP_LIB}
     Threads::Threads
 )
