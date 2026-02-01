@@ -22,8 +22,8 @@ jobs:
             os: macos-15
           - name: macOS 14 (Sonoma - Previous)
             os: macos-14
-          - name: macOS 15 Large (Sequoia - Intel)
-            os: macos-15-large
+          - name: macOS 15 Intel (Sequoia - Intel)
+            os: macos-15-intel
           - name: Windows 2025 (Server - Latest)
             os: windows-2025
             triplet: x64-windows
