@@ -18,10 +18,10 @@ jobs:
             os: ubuntu-24.04
           - name: Ubuntu 22.04 (Jammy - LTS)
             os: ubuntu-22.04
-          - name: macOS 15 (Sequoia - ARM64)
+          - name: macOS 15 (Sequoia - Latest)
             os: macos-15
-          - name: macOS 13 (Ventura - Intel)
-            os: macos-13
+          - name: macOS 14 (Sonoma - Previous)
+            os: macos-14
           - name: Windows 2025 (Server - Latest)
             os: windows-2025
             triplet: x64-windows
@@ -69,9 +69,9 @@ jobs:
         cmake --build build --config Release
 
   build-fedora:
-    name: Fedora 41 (Latest)
+    name: Fedora 43 (Latest)
     runs-on: ubuntu-24.04
-    container: fedora:41
+    container: fedora:43
     steps:
     - name: Install Build Tools
       run: |

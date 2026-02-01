@@ -21,12 +21,12 @@ jobs:
             archive_name: mojo-linux-x86_64.tar.gz
             asset_path: build/mojo
           - os: macos-15
-            target: macos-arm64
-            archive_name: mojo-macos-arm64.tar.gz
+            target: macos15-arm64
+            archive_name: mojo-macos15-arm64.tar.gz
             asset_path: build/mojo
-          - os: macos-13
-            target: macos-x86_64
-            archive_name: mojo-macos-x86_64.tar.gz
+          - os: macos-14
+            target: macos14-arm64
+            archive_name: mojo-macos14-arm64.tar.gz
             asset_path: build/mojo
           - os: windows-2025
             target: windows-x64
