@@ -3,7 +3,7 @@
   <h1>Mojo</h1>
   
   <p>
-    <b>The Lightning-Fast Web Crawler for AI & LLM Data Ingestion</b>
+    <b>Extremely Fast Web Crawler for AI & LLM Data Ingestion</b>
   </p>
 
   <a href="https://github.com/malvads/mojo/actions">
