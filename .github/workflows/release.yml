@@ -28,9 +28,9 @@ jobs:
             target: macos14-arm64
             archive_name: mojo-macos14-arm64.tar.gz
             asset_path: build/mojo
-          - os: macos-13
-            target: macos13-intel
-            archive_name: mojo-macos13-intel.tar.gz
+          - os: macos-15-large
+            target: macos15-intel
+            archive_name: mojo-macos15-intel.tar.gz
             asset_path: build/mojo
           - os: windows-2025
             target: windows-x64
