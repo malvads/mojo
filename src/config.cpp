@@ -21,9 +21,6 @@ Config Config::parse(int argc, char* argv[]) {
             if (i + 1 < argc) {
                 config.threads = std::stoi(argv[++i]);
             }
-            if (i + 1 < argc) {
-                config.proxies.push_back(argv[++i]);
-            }
         } else if (arg == "--proxy-retries") {
             if (i + 1 < argc) {
                 config.proxy_retries = std::stoi(argv[++i]);
