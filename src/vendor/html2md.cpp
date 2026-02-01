@@ -98,7 +98,7 @@ Converter::Converter(const string *html, Options *options) : html_(*html) {
   if (options)
     option = *options;
 
-  md_.reserve(html->size() * 1.2);
+  md_.reserve(static_cast<size_t>(html->size() * 1.2));
   tags_.reserve(41);
 
   // non-printing tags
@@ -512,7 +512,7 @@ string Converter::convert() {
 }
 
 void Converter::OnHasEnteredTag() {
-  offset_lt_ = index_ch_in_html_;
+  offset_lt_ = static_cast<uint16_t>(index_ch_in_html_);
   is_in_tag_ = true;
   is_closing_tag_ = false;
   prev_tag_ = current_tag_;
