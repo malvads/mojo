@@ -31,10 +31,7 @@ struct Config {
 
     int proxy_threads = 32;
 
-    bool show_help = false;
-
     static Config parse(int argc, char* argv[]);
-    static void print_usage(const char* prog_name);
 };
 
 }

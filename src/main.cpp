@@ -45,14 +45,8 @@ void run_crawler(const Mojo::Config& config) {
 int main(int argc, char* argv[]) {
     auto config = Mojo::Config::parse(argc, argv);
     
-    if (config.show_help) {
-        Mojo::Config::print_usage(argv[0]);
-        return 0;
-    }
-    
     if (config.urls.empty()) {
-        Mojo::Logger::error("No URLs provided.");
-        Mojo::Config::print_usage(argv[0]);
+        Mojo::Logger::error("No URLs provided. Use --help for usage.");
         return 1;
     }
 

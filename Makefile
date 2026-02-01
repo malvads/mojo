@@ -1,15 +1,12 @@
-CXX = clang++
-CXXFLAGS = -std=c++17 -O3 -Wall -Wextra -Wno-delete-non-abstract-non-virtual-dtor -Wno-unused-parameter
-INCLUDES = -Iinclude -Iinclude/vendor
-
 UNAME_S := $(shell uname -s)
 
-LIBS = -lcurl -lgumbo -lwebsockets -lyaml-cpp
-
 ifeq ($(UNAME_S),Darwin)
+    CXX = clang++
     INCLUDES += -I/opt/homebrew/include -I/usr/local/include
     LDFLAGS = -L/opt/homebrew/lib -L/usr/local/lib $(LIBS)
 else
+    CXX = g++
+    INCLUDES += -I/usr/local/include
     LDFLAGS = $(LIBS)
 endif
 

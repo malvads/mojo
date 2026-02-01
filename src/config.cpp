@@ -1,150 +1,102 @@
 #include <iostream>
 #include <fstream>
 #include <yaml-cpp/yaml.h>
+#include <CLI/CLI.hpp>
 #include "mojo/config.hpp"
 
 namespace Mojo {
 
+void load_yaml(Config& config, const std::string& path) {
+    try {
+        YAML::Node yaml = YAML::LoadFile(path);
+        if (yaml["depth"]) config.depth = yaml["depth"].as<int>();
+        if (yaml["max_depth"]) config.depth = yaml["max_depth"].as<int>();
+        if (yaml["threads"]) config.threads = yaml["threads"].as<int>();
+        if (yaml["output"]) config.output_dir = yaml["output"].as<std::string>();
+        if (yaml["output_dir"]) config.output_dir = yaml["output_dir"].as<std::string>();
+        if (yaml["render"]) config.render_js = yaml["render"].as<bool>();
+        if (yaml["render_js"]) config.render_js = yaml["render_js"].as<bool>();
+        if (yaml["headless"]) config.headless = yaml["headless"].as<bool>();
+        if (yaml["browser_path"]) config.browser_path = yaml["browser_path"].as<std::string>();
+        if (yaml["proxy_retries"]) config.proxy_retries = yaml["proxy_retries"].as<int>();
+        if (yaml["proxy_bind_ip"]) config.proxy_bind_ip = yaml["proxy_bind_ip"].as<std::string>();
+        if (yaml["proxy_bind_port"]) config.proxy_bind_port = yaml["proxy_bind_port"].as<int>();
+        if (yaml["cdp_port"]) config.cdp_port = yaml["cdp_port"].as<int>();
+        if (yaml["proxy_threads"]) config.proxy_threads = yaml["proxy_threads"].as<int>();
+
+        if (yaml["proxies"] && yaml["proxies"].IsSequence()) {
+            for (const auto& node : yaml["proxies"]) config.proxies.push_back(node.as<std::string>());
+        }
+
+        if (yaml["proxy_list"]) {
+            std::ifstream file(yaml["proxy_list"].as<std::string>());
+            std::string line;
+            while (std::getline(file, line)) if (!line.empty()) config.proxies.push_back(line);
+        }
+
+        YAML::Node prio = yaml["proxy_priorities"] ? yaml["proxy_priorities"] : yaml["priorities"];
+        if (prio && prio.IsMap()) {
+            for (auto it = prio.begin(); it != prio.end(); ++it) {
+                config.proxy_priorities[it->first.as<std::string>()] = it->second.as<int>();
+            }
+        }
+    } catch (const YAML::Exception& e) {
+        std::cerr << "Error parsing config file: " << e.what() << std::endl;
+        exit(1);
+    }
+}
+
 Config Config::parse(int argc, char* argv[]) {
     Config config;
+    CLI::App app{"Mojo - Extremely Fast Web Crawler for AI & LLM Data Ingestion"};
+
+    std::string proxy_list_path;
+    std::string single_proxy;
+
+    app.add_option("-d,--depth", config.depth, "Crawling depth");
+    app.add_option("-t,--threads", config.threads, "Number of threads");
+    app.add_option("-o,--output", config.output_dir, "Output directory");
+    app.add_option("-p,--proxy", single_proxy, "Single proxy URL");
+    app.add_option("--proxy-list", proxy_list_path, "File containing list of proxies");
+    app.add_option("--proxy-retries", config.proxy_retries, "Max failures before removing a proxy");
+    app.add_option("--proxy-threads", config.proxy_threads, "Threads for proxy gateway");
+    app.add_option("--proxy-bind-ip", config.proxy_bind_ip, "Proxy Server bind IP");
+    app.add_option("--proxy-bind-port", config.proxy_bind_port, "Proxy Server bind Port");
+    app.add_option("--cdp-port", config.cdp_port, "Chrome DevTools Protocol port");
+    app.add_option("--browser", config.browser_path, "Path to Chromium/Chrome executable");
+    app.add_option("--config", config.config_path, "Path to YAML configuration file");
     
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "-h" || arg == "--help") {
-            config.show_help = true;
-            return config;
-        } else if (arg == "-d" || arg == "--depth") {
-            if (i + 1 < argc) {
-                config.depth = std::stoi(argv[++i]);
-            }
-        } else if (arg == "-t" || arg == "--threads") {
-            if (i + 1 < argc) {
-                config.threads = std::stoi(argv[++i]);
-            }
-        } else if (arg == "--proxy-retries") {
-            if (i + 1 < argc) {
-                config.proxy_retries = std::stoi(argv[++i]);
-            }
-        } else if (arg == "--proxy-list") {
-            if (i + 1 < argc) {
-                std::ifstream file(argv[++i]);
-                std::string line;
-                while (std::getline(file, line)) {
-                    if (!line.empty()) {
-                        config.proxies.push_back(line);
-                    }
-                }
-            }
-        } else if (arg == "-o" || arg == "--output") {
-            if (i + 1 < argc) {
-                config.output_dir = argv[++i];
-            }
-        } else if (arg == "--flat") {
-            config.tree_structure = false;
-        } else if (arg == "--render") {
-            config.render_js = true;
-        } else if (arg == "--browser") {
-            if (i + 1 < argc) {
-                config.browser_path = argv[++i];
-            }
-        } else if (arg == "--no-headless") {
-            config.headless = false;
-        } else if (arg == "--config") {
-            if (i + 1 < argc) {
-                config.config_path = argv[++i];
-            }
-        } else if (arg == "--proxy-threads") {
-            if (i + 1 < argc) {
-                config.proxy_threads = std::stoi(argv[++i]);
-            }
-        } else if (arg == "--proxy-bind-ip") {
-            if (i + 1 < argc) config.proxy_bind_ip = argv[++i];
-        } else if (arg == "--proxy-bind-port") {
-            if (i + 1 < argc) config.proxy_bind_port = std::stoi(argv[++i]);
-        } else if (arg == "--cdp-port") {
-            if (i + 1 < argc) config.cdp_port = std::stoi(argv[++i]);
-        } else {
-            config.urls.push_back(arg);
-        }
+    app.add_flag("--flat",  [&](size_t count){ if (count > 0) config.tree_structure = false; }, "Use flat output structure");
+    app.add_flag("--render", config.render_js, "Enable JavaScript rendering");
+    app.add_flag("--no-headless", [&](size_t count){ if (count > 0) config.headless = false; }, "Run browser in windowed mode (debug only)");
+
+    app.add_option("urls", config.urls, "URLs to crawl");
+
+    try {
+        app.parse(argc, argv);
+    } catch (const CLI::ParseError& e) {
+        exit(app.exit(e));
     }
 
     if (!config.config_path.empty()) {
+        load_yaml(config, config.config_path);
+        
         try {
-            YAML::Node yaml_config = YAML::LoadFile(config.config_path);
-            if (yaml_config["depth"]) config.depth = yaml_config["depth"].as<int>();
-            if (yaml_config["max_depth"]) config.depth = yaml_config["max_depth"].as<int>();
-            if (yaml_config["threads"]) config.threads = yaml_config["threads"].as<int>();
-            if (yaml_config["output"]) config.output_dir = yaml_config["output"].as<std::string>();
-            if (yaml_config["output_dir"]) config.output_dir = yaml_config["output_dir"].as<std::string>();
-            if (yaml_config["render"]) config.render_js = yaml_config["render"].as<bool>();
-            if (yaml_config["render_js"]) config.render_js = yaml_config["render_js"].as<bool>();
-            if (yaml_config["headless"]) config.headless = yaml_config["headless"].as<bool>();
-            if (yaml_config["browser_path"]) config.browser_path = yaml_config["browser_path"].as<std::string>();
-            if (yaml_config["proxy_retries"]) config.proxy_retries = yaml_config["proxy_retries"].as<int>();
-            
-            if (yaml_config["proxy_bind_ip"]) config.proxy_bind_ip = yaml_config["proxy_bind_ip"].as<std::string>();
-            if (yaml_config["proxy_bind_port"]) config.proxy_bind_port = yaml_config["proxy_bind_port"].as<int>();
-            if (yaml_config["cdp_port"]) config.cdp_port = yaml_config["cdp_port"].as<int>();
-            if (yaml_config["proxy_threads"]) config.proxy_threads = yaml_config["proxy_threads"].as<int>();
-
-            if (yaml_config["proxies"]) {
-                auto proxies_node = yaml_config["proxies"];
-                if (proxies_node.IsSequence()) {
-                    for (const auto& node : proxies_node) {
-                        config.proxies.push_back(node.as<std::string>());
-                    }
-                }
-            }
-
-            if (yaml_config["proxy_list"]) {
-                std::ifstream file(yaml_config["proxy_list"].as<std::string>());
-                std::string line;
-                while (std::getline(file, line)) {
-                    if (!line.empty()) {
-                        config.proxies.push_back(line);
-                    }
-                }
-            }
-
-            YAML::Node priorities_node;
-            if (yaml_config["proxy_priorities"]) priorities_node = yaml_config["proxy_priorities"];
-            else if (yaml_config["priorities"]) priorities_node = yaml_config["priorities"];
-
-            if (priorities_node && priorities_node.IsMap()) {
-                for (YAML::const_iterator it = priorities_node.begin(); it != priorities_node.end(); ++it) {
-                    std::string protocol = it->first.as<std::string>();
-                    int priority = it->second.as<int>();
-                    config.proxy_priorities[protocol] = priority;
-                }
-            }
-        } catch (const YAML::Exception& e) {
-            std::cerr << "Error parsing config file: " << e.what() << std::endl;
-            exit(1);
+            app.parse(argc, argv);
+        } catch (const CLI::ParseError& e) {
+            exit(app.exit(e));
         }
+    }
+
+    if (!single_proxy.empty()) config.proxies.push_back(single_proxy);
+    if (!proxy_list_path.empty()) {
+        std::ifstream file(proxy_list_path);
+        std::string line;
+        while (std::getline(file, line)) if (!line.empty()) config.proxies.push_back(line);
     }
 
     return config;
 }
 
-void Config::print_usage(const char* prog_name) {
-    std::cout << "Usage: " << prog_name << " [options] <url1> [url2] ...\n"
-              << "Options:\n"
-              << "  -d, --depth <n>       Crawling depth (default: 0)\n"
-              << "  -t, --threads <n>     Number of threads (default: 4)\n"
-              << "  -p, --proxy <url>     Single proxy (e.g., socks5://127.0.0.1:9050)\n"
-              << "  --proxy-list <file>   File containing list of proxies\n"
-              << "  --proxy-retries <n>   Max retries before removing a proxy (default: 3)\n"
-              << "  --proxy-threads <n>   Number of threads for proxy gateway (default: 32)\n"
-              << "  --proxy-bind-ip <ip>  Proxy Server bind IP (default: 127.0.0.1)\n"
-              << "  --proxy-bind-port <n> Proxy Server bind Port (default: 0 [random])\n"
-              << "  --cdp-port <n>        Chrome DevTools Protocol port (default: 9222)\n"
-              << "  -o, --output <dir>    Output directory (default: mojo_out)\n"
-              << "  --flat                Use flat structure (default: tree)\n"
-              << "  --render              Enable JavaScript rendering (Experimental)\n"
-              << "  --browser <path>      Path to Chromium/Chrome executable\n"
-              << "  --config <file>       Path to YAML configuration file\n"
-              << "  --no-headless         Run browser in windowed mode (debug only)\n"
-              << "  -h, --help            Show this help message\n";
 }
 
-}

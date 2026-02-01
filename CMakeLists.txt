@@ -14,7 +14,8 @@ find_path(GUMBO_INCLUDE_DIR NAMES gumbo.h REQUIRED)
 find_package(Threads REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(yaml-cpp REQUIRED)
-find_library(WEBSOCKETS_LIBRARY NAMES websockets REQUIRED)
+find_package(CLI11 REQUIRED)
+find_library(WEBSOCKETS_LIBRARY NAMES websockets libwebsockets REQUIRED)
 
 # Include Directories
 include_directories(
@@ -41,10 +42,11 @@ endif()
 
 # Linking
 target_link_libraries(mojo PRIVATE 
-    ${CURL_LIBRARIES}
+    CURL::libcurl
     ${GUMBO_LIBRARY}
     ${WEBSOCKETS_LIBRARY}
     nlohmann_json::nlohmann_json
     ${YAML_CPP_LIB}
+    CLI11::CLI11
     Threads::Threads
 )
