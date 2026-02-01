@@ -45,15 +45,15 @@ You can download the latest pre-compiled binaries for Windows, macOS, and Linux 
 ```mermaid
 graph TD
     subgraph "Typical (Selenium/Puppeteer)"
-    A[Start] --> B[🔴 Launch Browser <br/> w/ Proxy A]
+    A[Start] --> B["🔴 Launch Browser <br/> w/ Proxy A"]
     B --> C[Visit Page 1]
     C --> D[🔴 Kill Browser]
-    D --> E[🔴 Launch Browser <br/> w/ Proxy B]
+    D --> E["🔴 Launch Browser <br/> w/ Proxy B"]
     E --> F[Visit Page 2]
     end
     
     subgraph "Mojo (Magic Gateway)"
-    H[Start] --> I[🟢 Launch Browser Once <br/> (Proxy = Mojo Localhost)]
+    H[Start] --> I["🟢 Launch Browser Once <br/> (Proxy = Mojo Localhost)"]
     I --> J[Visit Page 1]
     J -- "Traffic" --> K{Mojo Gateway}
     K -- "Auto-Rotate" --> L[External Proxy A]
@@ -62,6 +62,11 @@ graph TD
     K -- "Auto-Rotate" --> N[External Proxy B]
     end
 ```
+
+**Why is this better?**
+1.  **Zero Restart Overhead**: Traditional tools must kill and restart the entire Chrome process (1-2s delay) just to change an IP. Mojo keeps the browser open and rotates the connection internally.
+2.  **Microsecond Switching**: Mojo switches the upstream proxy at the TCP socket layer instantly for every request.
+3.  **Lower CPU Usage**: Avoiding constant browser reboots saves massive amounts of CPU, allowing you to run more concurrent workers.
 
 ## Video Example
 
