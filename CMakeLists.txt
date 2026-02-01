@@ -31,6 +31,7 @@ file(GLOB_RECURSE SOURCES "src/*.cpp")
 add_executable(mojo ${SOURCES})
 
 # Linking
+target_link_libraries(mojo PRIVATE 
     ${CURL_LIBRARIES}
     ${GUMBO_LIBRARY}
     ${WEBSOCKETS_LIBRARY}
