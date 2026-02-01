@@ -3,6 +3,8 @@
 #include "mojo/page.hpp"
 #include "mojo/logger.hpp"
 #include "mojo/statuses.hpp"
+#include "mojo/curl_client.hpp"
+#include <algorithm>
 
 namespace Mojo {
 
@@ -38,6 +40,16 @@ std::string BrowserClient::get_content(const std::string& url) {
 }
 
 Response BrowserClient::get(const std::string& url) {
+    {
+        CurlClient curl;
+        curl.set_proxy(proxy_);
+        Response head_res = curl.head(url);
+        if (head_res.success && head_res.content_type == "application/pdf") {
+             Logger::info("Browser: PDF detected (Content-Type), performing binary download via Curl...");
+             return curl.get(url);
+        }
+    }
+
     Response res;
     res.success = false;
     

@@ -15,6 +15,7 @@ public:
     
     void set_proxy(const std::string& proxy) override;
     Response get(const std::string& url) override;
+    Response head(const std::string& url);
 
 private:
     CURL* curl_;

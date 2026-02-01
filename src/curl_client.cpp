@@ -128,4 +128,44 @@ Response CurlClient::get(const std::string& url) {
     return response;
 }
 
+Response CurlClient::head(const std::string& url) {
+    Response response;
+    if (!curl_) {
+        response.error = "CURL not initialized";
+        return response;
+    }
+
+    std::string buffer;
+    RequestContext ctx;
+    ctx.body = &buffer;
+
+    curl_easy_setopt(curl_, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl_, CURLOPT_NOBODY, 1L); // HEAD request
+    curl_easy_setopt(curl_, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt(curl_, CURLOPT_HEADERDATA, &ctx);
+    curl_easy_setopt(curl_, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl_, CURLOPT_USERAGENT, Constants::USER_AGENT);
+    curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 5L); // Short timeout for HEAD
+
+    CURLcode res = curl_easy_perform(curl_);
+
+    long response_code;
+    curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &response_code);
+    
+    response.status_code = response_code;
+    response.content_type = ctx.content_type;
+    
+    if (res != CURLE_OK) {
+        response.success = false;
+        response.error = curl_easy_strerror(res);
+    } else {
+        response.success = (response_code >= 200 && response_code < 300);
+    }
+    
+    // Reset NOBODY
+    curl_easy_setopt(curl_, CURLOPT_NOBODY, 0L);
+    
+    return response;
+}
+
 }

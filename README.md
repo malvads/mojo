@@ -36,8 +36,32 @@ You can download the latest pre-compiled binaries for Windows, macOS, and Linux 
   - **Priority Selection**: Automatically prioritizes SOCKS5 proxies for improved performance.
 - **JavaScript Rendering (slower)**:
   - **Full Browser Simulation**: Uses a headless Chromium instance to execute JavaScript and render dynamic content (SPAs, React, Vue, etc.).
+  - **Magic Proxy Rotation**: Bypasses Chromium's static proxy limitation using an internal **Reverse Proxy Gateway**. This allows the browser to rotate IPs per-request **without the heavy overhead of restarting the browser process**. This makes it **orders of magnitude faster** than traditional scrapers (Selenium/Puppeteer) which force a full browser reboot (~1-2s overhead) to switch proxies.
   - **Stealth Mode**: Leverages native Chromium with minimal flags for maximum invisibility.
   - **Performance**: While slower than raw HTTP crawling, it ensures 100% fidelity for dynamic sites.
+
+### Architecture Comparison (--render flag)
+
+```mermaid
+graph TD
+    subgraph "Typical (Selenium/Puppeteer)"
+    A[Start] --> B[🔴 Launch Browser <br/> w/ Proxy A]
+    B --> C[Visit Page 1]
+    C --> D[🔴 Kill Browser]
+    D --> E[🔴 Launch Browser <br/> w/ Proxy B]
+    E --> F[Visit Page 2]
+    end
+    
+    subgraph "Mojo (Magic Gateway)"
+    H[Start] --> I[🟢 Launch Browser Once <br/> (Proxy = Mojo Localhost)]
+    I --> J[Visit Page 1]
+    J -- "Traffic" --> K{Mojo Gateway}
+    K -- "Auto-Rotate" --> L[External Proxy A]
+    I --> M[Visit Page 2]
+    M -- "Traffic" --> K
+    K -- "Auto-Rotate" --> N[External Proxy B]
+    end
+```
 
 ## Video Example
 
