@@ -36,5 +36,5 @@ target_link_libraries(mojo PRIVATE
 
 if (WIN32)
     # Windows specific definitions if needed
-    add_definitions(-DCURL_STATICLIB)
+    add_definitions(-DCURL_STATICLIB -DNOMINMAX)
 endif()
