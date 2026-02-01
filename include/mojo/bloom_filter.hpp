@@ -3,7 +3,9 @@
 #include <string>
 #include <mutex>
 #include <cmath>
+#include <stdint.h>
 #include "mojo/constants.hpp"
+#include "vendor/murmur3.h"
 
 namespace Mojo {
 
@@ -14,16 +16,18 @@ public:
         : bits_(size, false), num_hashes_(num_hashes) {}
 
     void add(const std::string& key) {
+        auto hashes = get_hashes(key);
         std::lock_guard<std::mutex> lock(mutex_);
         for (int i = 0; i < num_hashes_; ++i) {
-            bits_[hash(key, i) % bits_.size()] = true;
+            bits_[compute_hash(hashes, i) % bits_.size()] = true;
         }
     }
 
     bool contains(const std::string& key) {
+        auto hashes = get_hashes(key);
         std::lock_guard<std::mutex> lock(mutex_);
         for (int i = 0; i < num_hashes_; ++i) {
-            if (!bits_[hash(key, i) % bits_.size()]) {
+            if (!bits_[compute_hash(hashes, i) % bits_.size()]) {
                 return false;
             }
         }
@@ -40,9 +44,14 @@ private:
     int num_hashes_;
     std::mutex mutex_;
 
-    size_t hash(const std::string& key, int seed) const {
-        size_t h = std::hash<std::string>{}(key);
-        return h ^ (static_cast<size_t>(seed) + 0x9e3779b9 + (h << 6) + (h >> 2));
+    std::pair<uint64_t, uint64_t> get_hashes(const std::string& key) const {
+        uint64_t out[2];
+        MurmurHash3_x64_128(key.data(), static_cast<int>(key.size()), 42, out);
+        return {out[0], out[1]};
+    }
+
+    size_t compute_hash(const std::pair<uint64_t, uint64_t>& hashes, int i) const {
+        return static_cast<size_t>(hashes.first + static_cast<uint64_t>(i) * hashes.second);
     }
 };
 
