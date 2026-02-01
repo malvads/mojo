@@ -33,7 +33,7 @@ struct Proxy {
 
 class ProxyPool {
 public:
-    explicit ProxyPool(const std::vector<std::string>& proxies);
+    explicit ProxyPool(const std::vector<std::string>& proxies, int max_retries = 3);
 
     std::optional<Proxy> get_proxy();
     void report(Proxy p, bool success);
@@ -43,6 +43,7 @@ private:
     std::priority_queue<Proxy> queue_;
     mutable std::mutex mutex_;
     size_t next_id_ = 0;
+    int max_retries_;
 };
 
 }

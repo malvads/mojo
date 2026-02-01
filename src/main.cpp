@@ -30,10 +30,16 @@ void run_crawler(const Mojo::Config& config) {
     curl_global_init(CURL_GLOBAL_ALL);
 
     {
-        Mojo::Crawler crawler(config.depth, config.threads, 
-                              config.output_dir, config.tree_structure, 
-                              config.render_js,
-                              config.proxies);
+        Mojo::CrawlerConfig crawler_config;
+        crawler_config.max_depth = config.depth;
+        crawler_config.threads = config.threads;
+        crawler_config.output_dir = config.output_dir;
+        crawler_config.tree_structure = config.tree_structure;
+        crawler_config.render_js = config.render_js;
+        crawler_config.proxies = config.proxies;
+        crawler_config.proxy_retries = config.proxy_retries;
+
+        Mojo::Crawler crawler(crawler_config);
 
         for (const auto& url : config.urls) {
             crawler.start(url);

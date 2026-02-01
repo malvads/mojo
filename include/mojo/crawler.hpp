@@ -14,12 +14,19 @@
 
 namespace Mojo {
 
+struct CrawlerConfig {
+    int max_depth;
+    int threads;
+    std::string output_dir;
+    bool tree_structure;
+    bool render_js;
+    std::vector<std::string> proxies;
+    int proxy_retries;
+};
+
 class Crawler {
 public:
-    Crawler(int max_depth, int threads, 
-            std::string output_dir, bool tree_structure,
-            bool render_js = false,
-            const std::vector<std::string>& proxies = {});
+    explicit Crawler(const CrawlerConfig& config);
     void start(const std::string& start_url);
 
 private:

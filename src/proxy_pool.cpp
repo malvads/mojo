@@ -3,7 +3,8 @@
 
 namespace Mojo {
 
-ProxyPool::ProxyPool(const std::vector<std::string>& proxies) {
+ProxyPool::ProxyPool(const std::vector<std::string>& proxies, int max_retries) 
+    : max_retries_(max_retries) {
     size_t id_counter = 0;
     for (const auto& url : proxies) {
         Proxy p;
@@ -41,7 +42,13 @@ void ProxyPool::report(Proxy p, bool success) {
         p.failure_count = 0;
         queue_.push(p);
     } else {
-        Logger::error("Proxy removed (Failed): " + p.url);
+        p.failure_count++;
+        if (p.failure_count <= max_retries_) {
+            Logger::warn("Proxy failed (" + std::to_string(p.failure_count) + "/" + std::to_string(max_retries_) + "): " + p.url);
+            queue_.push(p);
+        } else {
+            Logger::error("Proxy removed (Max Retries Exceeded): " + p.url);
+        }
     }
 }
 

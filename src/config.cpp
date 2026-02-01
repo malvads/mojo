@@ -20,9 +20,12 @@ Config Config::parse(int argc, char* argv[]) {
             if (i + 1 < argc) {
                 config.threads = std::stoi(argv[++i]);
             }
-        } else if (arg == "-p" || arg == "--proxy") {
             if (i + 1 < argc) {
                 config.proxies.push_back(argv[++i]);
+            }
+        } else if (arg == "--proxy-retries") {
+            if (i + 1 < argc) {
+                config.proxy_retries = std::stoi(argv[++i]);
             }
         } else if (arg == "--proxy-list") {
             if (i + 1 < argc) {
@@ -62,6 +65,7 @@ void Config::print_usage(const char* prog_name) {
               << "  -t, --threads <n>     Number of threads (default: 4)\n"
               << "  -p, --proxy <url>     Single proxy (e.g., socks5://127.0.0.1:9050)\n"
               << "  --proxy-list <file>   File containing list of proxies\n"
+              << "  --proxy-retries <n>   Max retries before removing a proxy (default: 3)\n"
               << "  -o, --output <dir>    Output directory (default: mojo_out)\n"
               << "  --flat                Use flat structure (default: tree)\n"
               << "  --render              Enable JavaScript rendering (Experimental)\n"

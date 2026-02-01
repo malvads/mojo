@@ -13,15 +13,12 @@
 
 namespace Mojo {
 
-Crawler::Crawler(int max_depth, int threads, 
-                 std::string output_dir, bool tree_structure,
-                 bool render_js,
-                 const std::vector<std::string>& proxies) 
-    : max_depth_(max_depth), num_threads_(threads), 
-      output_dir_(std::move(output_dir)), tree_structure_(tree_structure),
-      use_proxies_(!proxies.empty()),
-      proxy_pool_(proxies),
-      render_js_(render_js) {}
+Crawler::Crawler(const CrawlerConfig& config)
+    : max_depth_(config.max_depth), num_threads_(config.threads), 
+      output_dir_(config.output_dir), tree_structure_(config.tree_structure),
+      use_proxies_(!config.proxies.empty()),
+      proxy_pool_(config.proxies, config.proxy_retries),
+      render_js_(config.render_js) {}
 
 void Crawler::start(const std::string& start_url) {
     start_domain_ = start_url;

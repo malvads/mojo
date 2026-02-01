@@ -14,6 +14,7 @@ static constexpr const char* USER_AGENT = "Mojo/1.0";
 
 static constexpr size_t DEFAULT_BLOOM_FILTER_SIZE = 1000000;
 static constexpr int DEFAULT_BLOOM_FILTER_HASHES = 7;
+static constexpr int DEFAULT_PROXY_RETRIES = 3;
 
 } // namespace Constants
 } // namespace Mojo
