@@ -55,7 +55,7 @@ graph TD
     subgraph "Mojo (Magic Gateway)"
     H[Start] --> I["Launch Browser Once <br/> (Proxy = Mojo Localhost)"]
     I --> J[Visit Page 1]
-    J -- "Traffic" --> K{Mojo Gateway (Proxy Pool Rotation)}
+    J -- "Traffic" --> K{"Mojo Gateway (Proxy Pool Rotation)"}
     K -- "Auto-Rotate" --> L[External Proxy A]
     I --> M[Visit Page 2]
     M -- "Traffic" --> K
