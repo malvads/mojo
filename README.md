@@ -33,7 +33,6 @@ You can download the latest pre-compiled binaries for Windows, macOS, and Linux 
 - **Proxies**:
   - **Protocol Support**: Rotates between SOCKS4, SOCKS5, and HTTP proxies.
   - **Auto Pruning**: Automatically detects and prunes dead or rate-limited proxies (403/429 errors) from the pool.
-  - **Auto Pruning**: Automatically detects and prunes dead or rate-limited proxies (403/429 errors) from the pool.
   - **Priority Selection**: Automatically prioritizes SOCKS5 proxies for improved performance.
 - **JavaScript Rendering (slower)**:
   - **Full Browser Simulation**: Uses a headless Chromium instance to execute JavaScript and render dynamic content (SPAs, React, Vue, etc.).
