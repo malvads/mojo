@@ -46,19 +46,19 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev
+        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev libcli11-dev
 
     # --- macOS Dependencies ---
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
-        brew install curl gumbo-parser
+        brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11
 
     # --- Windows Dependencies ---
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
-        vcpkg install curl gumbo --triplet ${{ matrix.triplet }}
+        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 --triplet ${{ matrix.triplet }}
         vcpkg integrate install
 
     - name: Get Version
