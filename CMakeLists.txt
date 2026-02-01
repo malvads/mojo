@@ -13,6 +13,7 @@ find_library(GUMBO_LIBRARY NAMES gumbo gumbo-parser REQUIRED)
 find_path(GUMBO_INCLUDE_DIR NAMES gumbo.h REQUIRED)
 find_package(Threads REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(yaml-cpp REQUIRED)
 find_library(WEBSOCKETS_LIBRARY NAMES websockets REQUIRED)
 
 # Include Directories
@@ -35,5 +36,6 @@ target_link_libraries(mojo PRIVATE
     ${GUMBO_LIBRARY}
     ${WEBSOCKETS_LIBRARY}
     nlohmann_json::nlohmann_json
+    yaml-cpp
     Threads::Threads
 )

@@ -7,10 +7,13 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <map>
 
 #include "mojo/proxy_pool.hpp"
 #include "mojo/bloom_filter.hpp"
 #include "mojo/http_client.hpp"
+#include "mojo/proxy_server.hpp"
+#include "mojo/browser_launcher.hpp"
 
 namespace Mojo {
 
@@ -20,13 +23,17 @@ struct CrawlerConfig {
     std::string output_dir;
     bool tree_structure;
     bool render_js;
+    std::string browser_path;
+    bool headless;
     std::vector<std::string> proxies;
+    std::map<std::string, int> proxy_priorities;
     int proxy_retries;
 };
 
 class Crawler {
 public:
     explicit Crawler(const CrawlerConfig& config);
+    ~Crawler();
     void start(const std::string& start_url);
 
 private:
@@ -36,6 +43,7 @@ private:
     bool tree_structure_;
     bool use_proxies_;
     ProxyPool proxy_pool_;
+    std::unique_ptr<ProxyServer> proxy_server_;
     
     std::vector<std::thread> workers_;
     std::queue<std::pair<std::string, int>> frontier_;
@@ -48,6 +56,8 @@ private:
     std::atomic<bool> done_{false};
     std::string start_domain_;
     bool render_js_;
+    std::string browser_path_;
+    bool headless_;
 
     void worker_loop();
     void process_task(HttpClient& client, std::string url, int depth);

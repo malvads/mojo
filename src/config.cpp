@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <yaml-cpp/yaml.h>
 #include "mojo/config.hpp"
 
 namespace Mojo {
@@ -51,10 +52,66 @@ Config Config::parse(int argc, char* argv[]) {
             }
         } else if (arg == "--no-headless") {
             config.headless = false;
+        } else if (arg == "-c" || arg == "--config") {
+            if (i + 1 < argc) {
+                config.config_path = argv[++i];
+            }
         } else {
             config.urls.push_back(arg);
         }
     }
+
+    if (!config.config_path.empty()) {
+        try {
+            YAML::Node yaml_config = YAML::LoadFile(config.config_path);
+            if (yaml_config["depth"]) config.depth = yaml_config["depth"].as<int>();
+            if (yaml_config["max_depth"]) config.depth = yaml_config["max_depth"].as<int>();
+            if (yaml_config["threads"]) config.threads = yaml_config["threads"].as<int>();
+            if (yaml_config["output"]) config.output_dir = yaml_config["output"].as<std::string>();
+            if (yaml_config["output_dir"]) config.output_dir = yaml_config["output_dir"].as<std::string>();
+            if (yaml_config["render"]) config.render_js = yaml_config["render"].as<bool>();
+            if (yaml_config["render_js"]) config.render_js = yaml_config["render_js"].as<bool>();
+            if (yaml_config["headless"]) config.headless = yaml_config["headless"].as<bool>();
+            if (yaml_config["browser_path"]) config.browser_path = yaml_config["browser_path"].as<std::string>();
+            if (yaml_config["proxy_retries"]) config.proxy_retries = yaml_config["proxy_retries"].as<int>();
+
+            if (yaml_config["proxies"]) {
+                auto proxies_node = yaml_config["proxies"];
+                if (proxies_node.IsSequence()) {
+                    for (const auto& node : proxies_node) {
+                        config.proxies.push_back(node.as<std::string>());
+                    }
+                }
+            }
+
+            if (yaml_config["proxy_list"]) {
+                std::ifstream file(yaml_config["proxy_list"].as<std::string>());
+                std::string line;
+                while (std::getline(file, line)) {
+                    if (!line.empty()) {
+                        config.proxies.push_back(line);
+                    }
+                }
+            }
+
+            // Check for both "priorities" and "proxy_priorities"
+            YAML::Node priorities_node;
+            if (yaml_config["proxy_priorities"]) priorities_node = yaml_config["proxy_priorities"];
+            else if (yaml_config["priorities"]) priorities_node = yaml_config["priorities"];
+
+            if (priorities_node && priorities_node.IsMap()) {
+                for (YAML::const_iterator it = priorities_node.begin(); it != priorities_node.end(); ++it) {
+                    std::string protocol = it->first.as<std::string>();
+                    int priority = it->second.as<int>();
+                    config.proxy_priorities[protocol] = priority;
+                }
+            }
+        } catch (const YAML::Exception& e) {
+            std::cerr << "Error parsing config file: " << e.what() << std::endl;
+            exit(1);
+        }
+    }
+
     return config;
 }
 
@@ -70,6 +127,7 @@ void Config::print_usage(const char* prog_name) {
               << "  --flat                Use flat structure (default: tree)\n"
               << "  --render              Enable JavaScript rendering (Experimental)\n"
               << "  --browser <path>      Path to Chromium/Chrome executable\n"
+              << "  --config <file>       Path to YAML configuration file\n"
               << "  --no-headless         Run browser in windowed mode (debug only)\n"
               << "  -h, --help            Show this help message\n";
 }

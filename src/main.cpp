@@ -7,24 +7,7 @@
 
 namespace {
 
-void launch_browser_if_needed(const Mojo::Config& config) {
-    if (!config.render_js) return;
 
-    std::string path = config.browser_path;
-    if (path.empty()) path = Mojo::BrowserLauncher::find_browser();
-    
-    if (path.empty()) {
-        Mojo::Logger::error("No Chromium browser found. Use --browser to specify path.");
-        exit(1);
-    }
-
-    if (!Mojo::BrowserLauncher::launch(path, 9222, config.headless)) {
-        Mojo::Logger::error("Failed to launch headless browser.");
-        exit(1);
-    }
-
-    std::atexit(Mojo::BrowserLauncher::cleanup);
-}
 
 void run_crawler(const Mojo::Config& config) {
     curl_global_init(CURL_GLOBAL_ALL);
@@ -37,7 +20,10 @@ void run_crawler(const Mojo::Config& config) {
         crawler_config.tree_structure = config.tree_structure;
         crawler_config.render_js = config.render_js;
         crawler_config.proxies = config.proxies;
+        crawler_config.proxy_priorities = config.proxy_priorities;
         crawler_config.proxy_retries = config.proxy_retries;
+        crawler_config.browser_path = config.browser_path;
+        crawler_config.headless = config.headless;
 
         Mojo::Crawler crawler(crawler_config);
 
@@ -65,7 +51,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    launch_browser_if_needed(config);
     run_crawler(config);
 
     return 0;

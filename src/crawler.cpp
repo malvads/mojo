@@ -17,8 +17,16 @@ Crawler::Crawler(const CrawlerConfig& config)
     : max_depth_(config.max_depth), num_threads_(config.threads), 
       output_dir_(config.output_dir), tree_structure_(config.tree_structure),
       use_proxies_(!config.proxies.empty()),
-      proxy_pool_(config.proxies, config.proxy_retries),
-      render_js_(config.render_js) {}
+      proxy_pool_(config.proxies, config.proxy_retries, config.proxy_priorities),
+      render_js_(config.render_js),
+      browser_path_(config.browser_path),
+      headless_(config.headless) {}
+
+Crawler::~Crawler() {
+    if (render_js_) {
+        BrowserLauncher::cleanup();
+    }
+}
 
 void Crawler::start(const std::string& start_url) {
     start_domain_ = start_url;
@@ -31,6 +39,32 @@ void Crawler::start(const std::string& start_url) {
     Logger::info("Started " + std::to_string(num_threads_) + " workers.");
     if (!proxy_pool_.empty()) {
         Logger::info("Initialized Proxy Pool.");
+        if (render_js_) {
+            proxy_server_ = std::make_unique<ProxyServer>(proxy_pool_);
+            proxy_server_->start();
+            Logger::info("Local Proxy Gateway started on port " + std::to_string(proxy_server_->get_port()));
+        }
+    }
+
+    if (render_js_) {
+        std::string p_url;
+        if (proxy_server_) {
+            p_url = "127.0.0.1:" + std::to_string(proxy_server_->get_port());
+        }
+        
+        std::string path = browser_path_;
+        if (path.empty()) path = BrowserLauncher::find_browser();
+        
+        if (path.empty()) {
+            Logger::error("Could not find a suitable browser (Chrome/Chromium/Edge). Please specify with --browser.");
+            return;
+        }
+
+        // 9222 is default CDP port.
+        if (!BrowserLauncher::launch(path, 9222, headless_, p_url)) {
+            Logger::error("Failed to launch browser.");
+            return;
+        }
     }
 
     for (auto& worker : workers_) {
@@ -144,6 +178,10 @@ bool Crawler::fetch_with_retry(HttpClient& client, const std::string& url, int d
 
         if (attempt == Constants::MAX_RETRIES) {
             Logger::error("Failed: " + url + " (" + res.error + ") - Max retries reached");
+        } else {
+            // Exponential Backoff: 1s, 2s, 4s...
+            int sleep_ms = 1000 * (1 << (attempt - 1));
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
         }
     }
 

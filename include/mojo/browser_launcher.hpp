@@ -13,7 +13,7 @@ public:
     };
 
     static std::string find_browser();
-    static bool launch(const std::string& path, int port, bool headless);
+    static bool launch(const std::string& path, int port, bool headless, const std::string& proxy_url = "");
     static void cleanup();
 
 private:

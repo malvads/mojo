@@ -64,7 +64,7 @@ std::string CDPClient::get_web_socket_url() {
         ctx_->tab_id = j["id"];
         return j["webSocketDebuggerUrl"];
     } catch (...) {
-        Logger::error("CDP: Failed to create tab. Check Chromium port 9222. Response: " + readBuffer);
+        // Logger::warn("CDP: Failed to get WebSocket URL. Browser might not be ready yet.");
         return "";
     }
 }

@@ -61,7 +61,7 @@ std::string BrowserLauncher::find_browser() {
     return "";
 }
 
-bool BrowserLauncher::launch(const std::string& path, int port, bool headless) {
+bool BrowserLauncher::launch(const std::string& path, int port, bool headless, const std::string& proxy_url) {
 #ifdef _WIN32
     if (browser_proc_info.hProcess != NULL) return true;
 #else
@@ -95,6 +95,10 @@ bool BrowserLauncher::launch(const std::string& path, int port, bool headless) {
         user_data,
         "--remote-allow-origins=*"
     };
+
+    if (!proxy_url.empty()) {
+        arg_strings.push_back("--proxy-server=" + proxy_url);
+    }
     
     if (!headless) {
         auto it = std::find(arg_strings.begin(), arg_strings.end(), "--headless");

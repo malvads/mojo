@@ -4,7 +4,7 @@ INCLUDES = -Iinclude -Iinclude/vendor
 
 UNAME_S := $(shell uname -s)
 
-LIBS = -lcurl -lgumbo -lwebsockets
+LIBS = -lcurl -lgumbo -lwebsockets -lyaml-cpp
 
 ifeq ($(UNAME_S),Darwin)
     INCLUDES += -I/opt/homebrew/include -I/usr/local/include

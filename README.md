@@ -66,56 +66,68 @@ Crawl a blog and save all articles into a single directory for easy embedding.
 ./mojo -d 3 -o ./dataset_raw --flat https://techblog.example.com
 ```
 
-### Advanced Proxy Usage
+## Advanced Proxy Usage
 
 Mojo supports sophisticated proxy configurations to ensure continuous crawling without being blocked.
 
-**1. Using a single SOCKS5 proxy:**
+### 1. Using CLI Arguments
+Single proxy:
 ```bash
 ./mojo -p socks5://127.0.0.1:9050 https://example.com
 ```
 
-**2. Using a proxy list for rotation:**
-Create a `proxies.txt` file with one proxy per line:
+Proxy List file:
+```bash
+./mojo --proxy-list proxies.txt https://target-site.com
+```
+
+### 2. Using Configuration File (`example_config.yaml`)
+You can define all settings in a YAML file for cleaner usage.
+
+Run with config:
+```bash
+./mojo --config example_config.yaml https://example.com
+```
+
+Example `proxies.txt` format:
 ```text
 socks5://user:pass@10.0.0.1:1080
 http://192.168.1.50:8080
 socks4://172.16.0.10:1080
 ```
-Then run Mojo with the list:
-```bash
-./mojo --proxy-list proxies.txt https://target-site.com
-```
 
 ### How mojo uses proxies?
 
-Inside the engine, Mojo manages proxies using a **Priority Queue**, ensuring the highest quality connections are used first:
+Inside the engine, Mojo manages proxies using a **Priority Selection Vector**, which favors specific protocols while ensuring high concurrency without resource locking:
 
-- **SOCKS5 (Priority 2)**: Highest priority. It handles all types of traffic (UDP/TCP), is generally faster and more anonymous than other protocols.
-- **SOCKS4 (Priority 1)**: Medium priority. Similar to SOCKS5 but lacks authentication and UDP support.
-- **HTTP/HTTPS (Priority 0)**: Lowest priority. These add more overhead due to header processing and are more likely to be detected by anti-bot systems.
+- **Concurrency**: Proxies are shared across all worker threads (non-exclusive), allowing massive parallel throughput without "exhausting" the pool.
+- **Selection**: A linear scan selects the best available proxy based on Priority (SOCKS5 > SOCKS4 > HTTP) and Health (Failures).
+- **Auto-Pruning**: Proxies that exceed the retry limit are automatically removed from the rotation.
 
-*Mojo will automatically rotate through these, prioritizing SOCKS5 and removing any that fail or return "Forbidden/Too Many Requests" (403/429) errors from the active pool.*
+**Priorities:**
+- **SOCKS5 (Priority 2)**: Highest priority. Faster and more anonymous.
+- **SOCKS4 (Priority 1)**: Medium priority.
+- **HTTP/HTTPS (Priority 0)**: Lowest priority.
 
 ## Build Instructions
 
 ### Prerequisites
 - C++17 Compiler (GCC/Clang/MSVC)
 - **libcurl** (Network)
-- **libcurl** (Network)
 - **libgumbo** (HTML Parsing)
 - **libwebsockets** (WebSocket Communication)
+- **yaml-cpp** (YAML Parsing)
 - **Google Chrome** or **Chromium** (Runtime dependency for JS rendering)
 
 ### Linux (Ubuntu/Debian)
 ```bash
-sudo apt-get install build-essential libcurl4-openssl-dev libgumbo-dev libwebsockets-dev chromium
+sudo apt-get install build-essential libcurl4-openssl-dev libgumbo-dev libwebsockets-dev libyaml-cpp-dev chromium
 make
 ```
 
 ### macOS
 ```bash
-brew install curl gumbo-parser libwebsockets
+brew install curl gumbo-parser libwebsockets yaml-cpp
 brew install --cask google-chrome
 make
 ```

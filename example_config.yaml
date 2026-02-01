@@ -1,0 +1,23 @@
+max_depth: 2
+threads: 4
+output_dir: "./output"
+render_js: true
+headless: true
+browser_path: "" # Optional: Custom path to Chrome/Chromium
+
+# Proxies
+# You can specify a list file containing one proxy per line
+# proxy_list: "proxies.txt"
+
+# Or list them inline (uncomment to use)
+# proxies:
+#   - "socks5://127.0.0.1:9050"
+#   - "http://127.0.0.1:8888"
+
+# Proxy Priorities (Higher uses first)
+proxy_priorities:
+  socks5: 2
+  socks4: 1
+  http: 0
+
+proxy_retries: 3

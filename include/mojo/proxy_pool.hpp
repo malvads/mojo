@@ -5,6 +5,7 @@
 #include <mutex>
 #include <optional>
 #include <atomic>
+#include <map>
 
 namespace Mojo {
 
@@ -33,16 +34,16 @@ struct Proxy {
 
 class ProxyPool {
 public:
-    explicit ProxyPool(const std::vector<std::string>& proxies, int max_retries = 3);
+    explicit ProxyPool(const std::vector<std::string>& proxies, int max_retries, const std::map<std::string, int>& priorities);
 
     std::optional<Proxy> get_proxy();
     void report(Proxy p, bool success);
     bool empty() const;
 
 private:
-    std::priority_queue<Proxy> queue_;
+    std::vector<Proxy> proxies_;
     mutable std::mutex mutex_;
-    size_t next_id_ = 0;
+    size_t next_id_ = 0; // Not strictly needed for ordering anymore, but useful for ID generation
     int max_retries_;
 };
 
