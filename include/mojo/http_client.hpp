@@ -4,12 +4,24 @@
 #include <memory>
 
 namespace Mojo {
+    
+enum class ErrorType {
+    None,
+    Network,
+    Proxy,
+    Timeout,
+    Browser,
+    Render,
+    Skipped,
+    Other
+};
 
 struct Response {
     bool success = false;
     long status_code = 0;
     std::string body;
     std::string error;
+    ErrorType error_type = ErrorType::None;
     std::string effective_url;
     std::string content_type;
 };

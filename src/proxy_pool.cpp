@@ -35,34 +35,48 @@ std::optional<Proxy> ProxyPool::get_proxy() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (proxies_.empty()) return std::nullopt;
     
-    // Find best proxy: Highest Priority -> Lowest Failure Count
-    const Proxy* best = nullptr;
-    
+    // 1. Find the highest priority present in the pool
+    ProxyPriority highest_p = ProxyPriority::HTTP;
     for (const auto& p : proxies_) {
-        if (!best) {
-            best = &p;
-            continue;
-        }
-        
-        // Higher Priority is better
-        if (p.priority > best->priority) {
-            best = &p;
-            continue;
-        } else if (p.priority < best->priority) {
-            continue;
-        }
-        
-        // Same Priority: Lower Failure Count is better
-        if (p.failure_count < best->failure_count) {
-            best = &p;
-            continue;
+        if (p.priority > highest_p) highest_p = p.priority;
+    }
+
+    // 2. Find the lowest failure count within that highest priority
+    int min_failures = 1000000;
+    for (const auto& p : proxies_) {
+        if (p.priority == highest_p && p.failure_count < min_failures) {
+            min_failures = p.failure_count;
         }
     }
+
+    // 3. Filter candidates that match highest_p AND min_failures
+    std::vector<size_t> candidates;
+    for (size_t i = 0; i < proxies_.size(); ++i) {
+        if (proxies_[i].priority == highest_p && proxies_[i].failure_count == min_failures) {
+            candidates.push_back(i);
+        }
+    }
+
+    if (candidates.empty()) return std::nullopt;
+
+    // 4. Apply Round-Robin within candidates
+    size_t last_idx = 0;
+    if (last_idx_map_.count(highest_p)) {
+        last_idx = last_idx_map_[highest_p];
+    }
+
+    size_t selected_cand_idx = 0; // Default to first candidate
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        if (candidates[i] > last_idx) {
+            selected_cand_idx = i;
+            break;
+        }
+    }
+
+    size_t final_idx = candidates[selected_cand_idx];
+    last_idx_map_[highest_p] = final_idx;
     
-    if (!best) return std::nullopt;
-    
-    // Return a copy. We do NOT remove it from the list.
-    return *best; 
+    return proxies_[final_idx];
 }
 
 void ProxyPool::report(Proxy p, bool success) {

@@ -18,13 +18,14 @@ Crawler::Crawler(const CrawlerConfig& config)
     : max_depth_(config.max_depth), num_threads_(config.threads), 
       output_dir_(config.output_dir), tree_structure_(config.tree_structure),
       use_proxies_(!config.proxies.empty()),
-      proxy_pool_(config.proxies, config.proxy_retries, config.proxy_priorities),
       proxy_bind_ip_(config.proxy_bind_ip),
       proxy_bind_port_(config.proxy_bind_port),
       cdp_port_(config.cdp_port),
+      proxy_pool_(config.proxies, config.proxy_retries, config.proxy_priorities),
       render_js_(config.render_js),
       browser_path_(config.browser_path),
-      headless_(config.headless) {}
+      headless_(config.headless),
+      proxy_threads_(config.proxy_threads) {}
 
 Crawler::~Crawler() {
     if (render_js_) {
@@ -44,7 +45,7 @@ void Crawler::start(const std::string& start_url) {
     if (!proxy_pool_.empty()) {
         Logger::info("Initialized Proxy Pool.");
         if (render_js_) {
-            proxy_server_ = std::make_unique<ProxyServer>(proxy_pool_, proxy_bind_ip_, proxy_bind_port_);
+            proxy_server_ = std::make_unique<ProxyServer>(proxy_pool_, proxy_bind_ip_, proxy_bind_port_, proxy_threads_);
             proxy_server_->start();
             Logger::info("Local Proxy Gateway started on port " + std::to_string(proxy_server_->get_port()));
         }
@@ -168,7 +169,8 @@ bool Crawler::fetch_with_retry(HttpClient& client, const std::string& url, int d
         }
 
         if (proxy_opt) {
-            bool ok = res.success || (res.status_code != 0 && res.status_code != 403 && res.status_code != 429);
+            bool is_proxy_fail = (res.error_type == ErrorType::Proxy || res.status_code == 403 || res.status_code == 429);
+            bool ok = res.success || (!is_proxy_fail && res.status_code != 0);
             proxy_pool_.report(*proxy_opt, ok);
         }
 
@@ -179,7 +181,11 @@ bool Crawler::fetch_with_retry(HttpClient& client, const std::string& url, int d
         }
 
         if (attempt == Constants::MAX_RETRIES) {
-            Logger::error("Failed: " + url + " (" + res.error + ") - Max retries reached");
+            std::string err_msg = "Failed: " + url + " (" + res.error + ")";
+            if (res.error_type == ErrorType::Render) err_msg += " [Render Error]";
+            else if (res.error_type == ErrorType::Proxy) err_msg += " [Proxy Error]";
+            else if (res.error_type == ErrorType::Timeout) err_msg += " [Timeout]";
+            Logger::error(err_msg + " - Max retries reached");
         } else {
             std::this_thread::sleep_for(Constants::get_backoff_time(attempt));
         }

@@ -94,10 +94,20 @@ Response CurlClient::get(const std::string& url) {
         if (ctx.is_image) {
             response.success = false;
             response.error = "Skipped: Image detected";
+            response.error_type = ErrorType::Skipped;
             response.status_code = static_cast<long>(Status::Ok); // Treated as OK but skipped
         } else {
             response.success = false;
             response.error = curl_easy_strerror(res);
+            
+            if (res == CURLE_COULDNT_CONNECT || res == CURLE_COULDNT_RESOLVE_PROXY || res == CURLE_RECV_ERROR) {
+                response.error_type = ErrorType::Proxy;
+            } else if (res == CURLE_OPERATION_TIMEDOUT) {
+                response.error_type = ErrorType::Timeout;
+            } else {
+                response.error_type = ErrorType::Network;
+            }
+            
             response.status_code = static_cast<long>(Status::NetworkError);
             return response;
         }

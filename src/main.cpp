@@ -24,6 +24,7 @@ void run_crawler(const Mojo::Config& config) {
         crawler_config.proxy_retries = config.proxy_retries;
         crawler_config.browser_path = config.browser_path;
         crawler_config.headless = config.headless;
+        crawler_config.proxy_threads = config.proxy_threads;
     
         crawler_config.proxy_bind_ip = config.proxy_bind_ip;
         crawler_config.proxy_bind_port = config.proxy_bind_port;

@@ -29,6 +29,8 @@ struct Config {
     int proxy_bind_port = 0; // 0 = Random
     int cdp_port = 9222;
 
+    int proxy_threads = 32;
+
     bool show_help = false;
 
     static Config parse(int argc, char* argv[]);

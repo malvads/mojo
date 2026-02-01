@@ -47,20 +47,7 @@ size_t ReplaceAll(string *haystack, const string &needle,
   return amount_replaced;
 }
 
-size_t ReplaceAll(string *haystack, const string &needle, const char c) {
-  return ReplaceAll(haystack, needle, string({c}));
-}
 
-// Split given string by given character delimiter into vector of strings
-vector<string> Split(string const &str, char delimiter) {
-  vector<string> result;
-  std::stringstream iss(str);
-
-  for (string token; getline(iss, token, delimiter);)
-    result.push_back(token);
-
-  return result;
-}
 
 string Repeat(const string &str, size_t amount) {
   if (amount == 0)
@@ -731,7 +718,7 @@ bool Converter::ParseCharInTagContent(char ch) {
 
 bool Converter::ReplacePreviousSpaceInLineByNewline() {
   if (current_tag_ == kTagParagraph ||
-      is_in_table_ && (prev_tag_ != kTagCode && prev_tag_ != kTagPre))
+      (is_in_table_ && (prev_tag_ != kTagCode && prev_tag_ != kTagPre)))
     return false;
 
   auto offset = md_.length() - 1;

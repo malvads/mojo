@@ -5,6 +5,7 @@
 #include <vector>
 #include <mutex>
 #include "mojo/proxy_pool.hpp"
+#include "mojo/thread_pool.hpp"
 
 namespace Mojo {
 
@@ -19,7 +20,7 @@ namespace Mojo {
 
 class ProxyServer {
 public:
-    explicit ProxyServer(ProxyPool& proxy_pool, const std::string& bind_ip = "127.0.0.1", int bind_port = 0);
+    explicit ProxyServer(ProxyPool& proxy_pool, const std::string& bind_ip = "127.0.0.1", int bind_port = 0, int thread_count = 32);
     ~ProxyServer();
 
     void start();
@@ -40,6 +41,8 @@ private:
     int port_ = 0;
     std::string bind_ip_ = "127.0.0.1";
     int bind_port_ = 0;
+    int thread_count_ = 32;
+    std::unique_ptr<ThreadPool> thread_pool_;
 
     void accept_loop();
     void handle_client(SocketHandle client_socket);

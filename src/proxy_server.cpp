@@ -71,8 +71,8 @@ namespace {
     }
 }
 
-ProxyServer::ProxyServer(ProxyPool& proxy_pool, const std::string& bind_ip, int bind_port) 
-    : proxy_pool_(proxy_pool), bind_ip_(bind_ip), bind_port_(bind_port) {
+ProxyServer::ProxyServer(ProxyPool& proxy_pool, const std::string& bind_ip, int bind_port, int thread_count) 
+    : proxy_pool_(proxy_pool), bind_ip_(bind_ip), bind_port_(bind_port), thread_count_(thread_count) {
     #ifdef _WIN32
         WSADATA wsaData;
         WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -114,7 +114,11 @@ void ProxyServer::start() {
         return;
     }
     port_ = ntohs(serv_addr.sin_port);
-
+    
+    if (!thread_pool_) {
+        thread_pool_ = std::make_unique<ThreadPool>(thread_count_); // Use configured worker threads
+    }
+    
     listen(server_socket_, 50);
     running_ = true;
     Logger::info("ProxyServer: Listening on " + bind_ip_ + ":" + std::to_string(port_));
@@ -149,7 +153,9 @@ void ProxyServer::accept_loop() {
             continue;
         }
 
-        std::thread(&ProxyServer::handle_client, this, client_sock).detach();
+        thread_pool_->enqueue([this, client_sock]() {
+            handle_client(client_sock);
+        });
     }
 }
 
@@ -304,26 +310,29 @@ ProxyServer::ParsedProxy ProxyServer::parse_proxy_url(const std::string& url_str
 }
 
 SocketHandle ProxyServer::connect_to_upstream(const std::string& host, int port) {
-    SocketHandle sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == INVALID_SOCKET_VAL) return INVALID_SOCKET_VAL;
+    struct addrinfo hints, *res;
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
 
-    struct hostent *server = gethostbyname(host.c_str());
-    if (server == NULL) {
+    if (getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res) != 0) {
         Logger::error("ProxyServer: DNS resolution failed for " + host);
-        close(sock);
         return INVALID_SOCKET_VAL;
     }
 
-    struct sockaddr_in serv_addr;
-    std::memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    std::memcpy(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
-    serv_addr.sin_port = htons(port);
-
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == SOCKET_ERROR_VAL) {
-        close(sock);
+    SocketHandle sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    if (sock == INVALID_SOCKET_VAL) {
+        freeaddrinfo(res);
         return INVALID_SOCKET_VAL;
     }
+
+    if (connect(sock, res->ai_addr, static_cast<socklen_t>(res->ai_addrlen)) == SOCKET_ERROR_VAL) {
+        close(sock);
+        freeaddrinfo(res);
+        return INVALID_SOCKET_VAL;
+    }
+
+    freeaddrinfo(res);
     return sock;
 }
 
@@ -396,8 +405,16 @@ bool ProxyServer::authenticate_socks5(SocketHandle upstream_sock, const std::str
 }
 
 bool ProxyServer::perform_socks4_handshake(SocketHandle upstream_sock, const std::string& target_host, int target_port, const std::string& user) {
-    struct hostent *he = gethostbyname(target_host.c_str());
-    if (!he || he->h_addrtype != AF_INET) return false;
+    struct addrinfo hints, *res;
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if (getaddrinfo(target_host.c_str(), nullptr, &hints, &res) != 0) {
+        return false;
+    }
+
+    struct sockaddr_in* addr = (struct sockaddr_in*)res->ai_addr;
 
     std::vector<char> req;
     req.push_back(SOCKS_VER_4);
@@ -406,10 +423,12 @@ bool ProxyServer::perform_socks4_handshake(SocketHandle upstream_sock, const std
     req.push_back(static_cast<char>((target_port >> 8) & 0xFF));
     req.push_back(static_cast<char>(target_port & 0xFF));
     
-    req.push_back(he->h_addr_list[0][0]);
-    req.push_back(he->h_addr_list[0][1]);
-    req.push_back(he->h_addr_list[0][2]);
-    req.push_back(he->h_addr_list[0][3]);
+    req.push_back(reinterpret_cast<char*>(&addr->sin_addr.s_addr)[0]);
+    req.push_back(reinterpret_cast<char*>(&addr->sin_addr.s_addr)[1]);
+    req.push_back(reinterpret_cast<char*>(&addr->sin_addr.s_addr)[2]);
+    req.push_back(reinterpret_cast<char*>(&addr->sin_addr.s_addr)[3]);
+    
+    freeaddrinfo(res);
     
     // UserID
     if (!user.empty()) {

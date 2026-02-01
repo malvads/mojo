@@ -13,7 +13,7 @@ public:
 
 private:
     std::string proxy_;
-    std::string get_content(const std::string& url);
+    bool render_to_response(const std::string& url, Response& res);
 };
 
 }

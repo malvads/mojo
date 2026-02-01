@@ -32,6 +32,7 @@ struct CrawlerConfig {
     std::vector<std::string> proxies;
     std::map<std::string, int> proxy_priorities;
     int proxy_retries;
+    int proxy_threads = 32;
 };
 
 class Crawler {
@@ -67,6 +68,7 @@ private:
     bool render_js_;
     std::string browser_path_;
     bool headless_;
+    int proxy_threads_;
 
     void worker_loop();
     void process_task(HttpClient& client, std::string url, int depth);

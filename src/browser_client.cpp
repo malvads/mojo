@@ -17,8 +17,12 @@ void BrowserClient::set_proxy(const std::string& proxy) {
     proxy_ = proxy;
 }
 
-std::string BrowserClient::get_content(const std::string& url) {
-    if (url.find("http") != 0) return ""; 
+bool BrowserClient::render_to_response(const std::string& url, Response& res) {
+    if (url.find("http") != 0) {
+        res.error = "Invalid URL scheme";
+        res.error_type = ErrorType::Other;
+        return false;
+    }
 
     try {
         auto browser = Browser::connect(Browser::kDefaultHost, Browser::kDefaultPort);
@@ -26,17 +30,27 @@ std::string BrowserClient::get_content(const std::string& url) {
         
         Logger::info("Browser: Navigating to " + url);
         if (!page->goto_url(url)) {
-            Logger::error("Browser: Failed to navigate to " + url);
-            return "";
+            res.error = "Browser navigation failed (Timeout or Network)";
+            res.error_type = ErrorType::Network; // Likely network if it reached here through magic proxy
+            return false;
         }
         
-        return page->content();
+        res.body = page->content();
+        if (res.body.empty()) {
+            res.error = "Browser returned empty content";
+            res.error_type = ErrorType::Render;
+            return false;
+        }
+        
+        return true;
     } catch (const std::exception& e) {
-        Logger::error(std::string("Browser: Error during rendering - ") + e.what());
-        return "";
+        res.error = std::string("Browser Engine Error: ") + e.what();
+        res.error_type = ErrorType::Browser;
+        return false;
     } catch (...) {
-        Logger::error("Browser: Unknown error during rendering");
-        return "";
+        res.error = "Unknown Browser Error";
+        res.error_type = ErrorType::Browser;
+        return false;
     }
 }
 
@@ -52,22 +66,13 @@ Response BrowserClient::get(const std::string& url) {
     }
 
     Response res;
-    res.success = false;
+    res.success = render_to_response(url, res);
     
-    try {
-        res.body = get_content(url);
-        
-        if (!res.body.empty()) {
-            res.success = true;
-            res.status_code = static_cast<long>(Status::Ok);
-        } else {
-            res.status_code = static_cast<long>(Status::BrowserError);
-            res.error = "Chromium CDP rendering failed or returned empty content";
-        }
-    } catch (const std::exception& e) {
-        res.status_code = static_cast<long>(Status::BrowserError);
-        res.error = std::string("CDP Error: ") + e.what();
-        Logger::error(res.error);
+    if (res.success) {
+        res.status_code = static_cast<long>(Status::Ok);
+    } else {
+        if (res.status_code == 0) res.status_code = static_cast<long>(Status::BrowserError);
+        Logger::error("Browser Error [" + url + "]: " + res.error);
     }
 
     return res;

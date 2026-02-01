@@ -49,12 +49,12 @@ struct Options {
    * \brief softBreak Wrap after ...  characters when the next space is reached
    * and as long as it's not in a list, table, image or anchor (link).
    */
-  int softBreak = 80;
+  size_t softBreak = 80;
 
   /*!
    * \brief hardBreak Force a break after ... characters in a line
    */
-  int hardBreak = 100;
+  size_t hardBreak = 100;
 
   /*!
    * \brief The char used for unordered lists
@@ -385,7 +385,6 @@ private:
   bool is_in_p_ = false;
   bool is_in_pre_ = false;
   bool is_in_table_ = false;
-  bool is_in_table_row_ = false;
   bool is_in_tag_ = false;
   bool is_self_closing_tag_ = false;
 

@@ -71,6 +71,18 @@ graph TD
 2.  **Microsecond Switching**: Mojo switches the upstream proxy at the TCP socket layer instantly for every request.
 3.  **Lower CPU Usage**: Avoiding constant browser reboots saves massive amounts of CPU, allowing you to run more concurrent workers.
 
+### Threading Model for --render flag
+
+Mojo operates with two distinct types of threads to ensure maximum throughput:
+
+| Thread Type | Configuration | Responsibility |
+| :--- | :--- | :--- |
+| **Scraping Workers** | `-t`, `--threads` | **The Decision Makers**: Managing the URL queue, visiting pages, extracting links, and saving results. Scaling this visits more pages simultaneously. |
+| **Gateway Workers** | `--proxy-threads` | **The Couriers**: Handling the high-volume background traffic (JS, CSS, images) requested by the browser. Scaling this ensures the browser never stalls. |
+
+**The Hierarchy:**
+If you set `-t 8`, Mojo visits 8 pages simultaneously. However, a single web page can trigger 50+ network requests. The **Gateway Workers** ensure those 50+ requests flow smoothly through your proxy rotation without bottlenecking the main scraping agents.
+
 ## Video Example
 
 Check out Mojo in action:
@@ -103,9 +115,9 @@ Crawl a blog and save all articles into a single directory for easy embedding.
 Mojo supports sophisticated proxy configurations to ensure continuous crawling without being blocked.
 
 ### 1. Using CLI Arguments
-Single proxy:
+Single proxy with custom gateway threads:
 ```bash
-./mojo -p socks5://127.0.0.1:9050 https://example.com
+./mojo -p socks5://127.0.0.1:9050 --proxy-threads 64 https://example.com
 ```
 
 Proxy List file:
@@ -132,8 +144,8 @@ socks4://172.16.0.10:1080
 
 Inside the engine, Mojo manages proxies using a **Priority Selection Vector**, which favors specific protocols while ensuring high concurrency without resource locking:
 
-- **Concurrency**: Proxies are shared across all worker threads (non-exclusive), allowing massive parallel throughput without "exhausting" the pool.
-- **Selection**: A linear scan selects the best available proxy based on Priority (SOCKS5 > SOCKS4 > HTTP) and Health (Failures).
+- **Concurrency**: Proxies are shared across all worker threads. The **Proxy Gateway** uses a configurable **Thread Pool** (`--proxy-threads`) to handle multiple simultaneous requests from the browser efficiently.
+- **Selection**: A **Round-Robin** strategy is used within each priority level to distribute load evenly across healthy proxies.
 - **Auto-Pruning**: Proxies that exceed the retry limit are automatically removed from the rotation.
 
 **Priorities:**

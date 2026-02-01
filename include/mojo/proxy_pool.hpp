@@ -43,8 +43,8 @@ public:
 private:
     std::vector<Proxy> proxies_;
     mutable std::mutex mutex_;
-    size_t next_id_ = 0; // Not strictly needed for ordering anymore, but useful for ID generation
     int max_retries_;
+    std::map<ProxyPriority, size_t> last_idx_map_;
 };
 
 }

@@ -21,3 +21,4 @@ proxy_priorities:
   http: 0
 
 proxy_retries: 3
+proxy_threads: 32 # Number of threads for the internal proxy gateway (if using render_js)

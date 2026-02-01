@@ -49,8 +49,13 @@ Config Config::parse(int argc, char* argv[]) {
             }
         } else if (arg == "--no-headless") {
             config.headless = false;
+        } else if (arg == "--config") {
             if (i + 1 < argc) {
                 config.config_path = argv[++i];
+            }
+        } else if (arg == "--proxy-threads") {
+            if (i + 1 < argc) {
+                config.proxy_threads = std::stoi(argv[++i]);
             }
         } else if (arg == "--proxy-bind-ip") {
             if (i + 1 < argc) config.proxy_bind_ip = argv[++i];
@@ -80,6 +85,7 @@ Config Config::parse(int argc, char* argv[]) {
             if (yaml_config["proxy_bind_ip"]) config.proxy_bind_ip = yaml_config["proxy_bind_ip"].as<std::string>();
             if (yaml_config["proxy_bind_port"]) config.proxy_bind_port = yaml_config["proxy_bind_port"].as<int>();
             if (yaml_config["cdp_port"]) config.cdp_port = yaml_config["cdp_port"].as<int>();
+            if (yaml_config["proxy_threads"]) config.proxy_threads = yaml_config["proxy_threads"].as<int>();
 
             if (yaml_config["proxies"]) {
                 auto proxies_node = yaml_config["proxies"];
@@ -128,6 +134,7 @@ void Config::print_usage(const char* prog_name) {
               << "  -p, --proxy <url>     Single proxy (e.g., socks5://127.0.0.1:9050)\n"
               << "  --proxy-list <file>   File containing list of proxies\n"
               << "  --proxy-retries <n>   Max retries before removing a proxy (default: 3)\n"
+              << "  --proxy-threads <n>   Number of threads for proxy gateway (default: 32)\n"
               << "  --proxy-bind-ip <ip>  Proxy Server bind IP (default: 127.0.0.1)\n"
               << "  --proxy-bind-port <n> Proxy Server bind Port (default: 0 [random])\n"
               << "  --cdp-port <n>        Chrome DevTools Protocol port (default: 9222)\n"
