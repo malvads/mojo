@@ -1,9 +1,12 @@
-#include <iostream>
+#define NOMINMAX
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+
 #include <iostream>
 #include <thread>
 #include <vector>
 #include <sstream>
 #include <cstring>
+#include <algorithm> // for std::max
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -13,6 +16,9 @@
     using socklen_t = int;
     #define close closesocket
     #define SHUT_RDWR SD_BOTH
+    using SocketHandle = SOCKET;
+    #define INVALID_SOCKET_VAL INVALID_SOCKET
+    #define SOCKET_ERROR_VAL SOCKET_ERROR
 #else
     #include <sys/types.h>
     #include <sys/socket.h>
@@ -21,6 +27,10 @@
     #include <unistd.h>
     #include <arpa/inet.h>
     #include <fcntl.h>
+    
+    using SocketHandle = int;
+    #define INVALID_SOCKET_VAL -1
+    #define SOCKET_ERROR_VAL -1
 #endif
 
 #include "mojo/proxy_server.hpp"
@@ -80,7 +90,7 @@ void ProxyServer::start() {
     if (running_) return;
     
     server_socket_ = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_socket_ < 0) {
+    if (server_socket_ == INVALID_SOCKET_VAL) {
         Logger::error("ProxyServer: Failed to create socket");
         return;
     }
@@ -89,16 +99,16 @@ void ProxyServer::start() {
     std::memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = inet_addr(bind_ip_.c_str());
-    serv_addr.sin_port = htons(bind_port_); // Use configured port (or 0 for random)
+    serv_addr.sin_port = htons(static_cast<unsigned short>(bind_port_)); // Use configured port (or 0 for random)
 
-    if (bind(server_socket_, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+    if (bind(server_socket_, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) == SOCKET_ERROR_VAL) {
         Logger::error("ProxyServer: Failed to bind to " + bind_ip_ + ":" + std::to_string(bind_port_));
         close(server_socket_);
         return;
     }
 
     socklen_t len = sizeof(serv_addr);
-    if (getsockname(server_socket_, (struct sockaddr *)&serv_addr, &len) == -1) {
+    if (getsockname(server_socket_, (struct sockaddr *)&serv_addr, &len) == SOCKET_ERROR_VAL) {
         Logger::error("ProxyServer: getsockname failed");
         close(server_socket_);
         return;
@@ -115,9 +125,9 @@ void ProxyServer::start() {
 void ProxyServer::stop() {
     if (!running_) return;
     running_ = false;
-    if (server_socket_ != -1) {
+    if (server_socket_ != INVALID_SOCKET_VAL) {
         close(server_socket_);
-        server_socket_ = -1;
+        server_socket_ = INVALID_SOCKET_VAL;
     }
     if (server_thread_.joinable()) {
         server_thread_.join();
@@ -132,9 +142,9 @@ void ProxyServer::accept_loop() {
     while (running_) {
         struct sockaddr_in cli_addr;
         socklen_t clilen = sizeof(cli_addr);
-        int client_sock = accept(server_socket_, (struct sockaddr *) &cli_addr, &clilen);
+        SocketHandle client_sock = accept(server_socket_, (struct sockaddr *) &cli_addr, &clilen);
         
-        if (client_sock < 0) {
+        if (client_sock == INVALID_SOCKET_VAL) {
             if (running_) Logger::warn("ProxyServer: Accept failed");
             continue;
         }
@@ -143,7 +153,7 @@ void ProxyServer::accept_loop() {
     }
 }
 
-void ProxyServer::handle_client(int client_socket) {
+void ProxyServer::handle_client(SocketHandle client_socket) {
     std::string initial_buffer;
     ssize_t initial_len = 0;
     
@@ -163,8 +173,8 @@ void ProxyServer::handle_client(int client_socket) {
 
     ParsedProxy p_info = parse_proxy_url(proxy_opt->url);
 
-    int upstream_sock = connect_to_upstream(p_info.host, p_info.port);
-    if (upstream_sock < 0) {
+    SocketHandle upstream_sock = connect_to_upstream(p_info.host, p_info.port);
+    if (upstream_sock == INVALID_SOCKET_VAL) {
         close(client_socket);
         proxy_pool_.report(*proxy_opt, false);
         return;
@@ -192,14 +202,14 @@ void ProxyServer::handle_client(int client_socket) {
 
         if (target.is_connect && is_socks) {
             const std::string ok = "HTTP/1.1 200 Connection Established\r\n\r\n";
-            send(client_socket, ok.c_str(), ok.size(), 0);
+            send(client_socket, ok.c_str(), static_cast<int>(ok.size()), 0);
         } 
         else {
             // HTTP request via SOCKS or any request via HTTP Proxy
             // If HTTP Proxy, we send the (potentially modified) initial buffer
             // If SOCKS, we send the raw HTTP buffer through the tunnel
             if (!target.is_connect || !is_socks) {
-                 send(upstream_sock, initial_buffer.data(), initial_buffer.size(), 0);
+                 send(upstream_sock, initial_buffer.data(), static_cast<int>(initial_buffer.size()), 0);
             }
         }
         
@@ -214,7 +224,7 @@ void ProxyServer::handle_client(int client_socket) {
     close(upstream_sock);
 }
 
-std::optional<ProxyServer::TargetInfo> ProxyServer::parse_initial_request(int client_socket, std::string& out_buffer, ssize_t& out_len) {
+std::optional<ProxyServer::TargetInfo> ProxyServer::parse_initial_request(SocketHandle client_socket, std::string& out_buffer, ssize_t& out_len) {
     char buffer[BUFFER_SIZE];
     out_len = recv(client_socket, buffer, sizeof(buffer), 0);
     if (out_len <= 0) return std::nullopt;
@@ -293,15 +303,15 @@ ProxyServer::ParsedProxy ProxyServer::parse_proxy_url(const std::string& url_str
     return info;
 }
 
-int ProxyServer::connect_to_upstream(const std::string& host, int port) {
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) return -1;
+SocketHandle ProxyServer::connect_to_upstream(const std::string& host, int port) {
+    SocketHandle sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == INVALID_SOCKET_VAL) return INVALID_SOCKET_VAL;
 
     struct hostent *server = gethostbyname(host.c_str());
     if (server == NULL) {
         Logger::error("ProxyServer: DNS resolution failed for " + host);
         close(sock);
-        return -1;
+        return INVALID_SOCKET_VAL;
     }
 
     struct sockaddr_in serv_addr;
@@ -310,18 +320,18 @@ int ProxyServer::connect_to_upstream(const std::string& host, int port) {
     std::memcpy(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
     serv_addr.sin_port = htons(port);
 
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == SOCKET_ERROR_VAL) {
         close(sock);
-        return -1;
+        return INVALID_SOCKET_VAL;
     }
     return sock;
 }
 
-bool ProxyServer::perform_socks5_handshake(int upstream_sock, const std::string& target_host, int target_port, const std::string& user, const std::string& pass) {
+bool ProxyServer::perform_socks5_handshake(SocketHandle upstream_sock, const std::string& target_host, int target_port, const std::string& user, const std::string& pass) {
     bool auth_required = !user.empty();
     std::vector<char> greeting = { SOCKS_VER_5, 0x01, auth_required ? SOCKS_AUTH_USERPASS : SOCKS_AUTH_NONE };
     
-    if (send(upstream_sock, greeting.data(), greeting.size(), 0) != (ssize_t)greeting.size()) return false;
+    if (send(upstream_sock, greeting.data(), static_cast<int>(greeting.size()), 0) != static_cast<int>(greeting.size())) return false;
 
     char resp[2];
     if (recv(upstream_sock, resp, 2, 0) != 2 || resp[0] != SOCKS_VER_5) return false;
@@ -343,7 +353,7 @@ bool ProxyServer::perform_socks5_handshake(int upstream_sock, const std::string&
     req.push_back(static_cast<char>((target_port >> 8) & 0xFF));
     req.push_back(static_cast<char>(target_port & 0xFF));
 
-    if (send(upstream_sock, req.data(), req.size(), 0) != (ssize_t)req.size()) return false;
+    if (send(upstream_sock, req.data(), static_cast<int>(req.size()), 0) != static_cast<int>(req.size())) return false;
 
     char header[4];
     if (recv(upstream_sock, header, 4, 0) != 4) return false;
@@ -370,7 +380,7 @@ bool ProxyServer::perform_socks5_handshake(int upstream_sock, const std::string&
     return true;
 }
 
-bool ProxyServer::authenticate_socks5(int upstream_sock, const std::string& user, const std::string& pass) {
+bool ProxyServer::authenticate_socks5(SocketHandle upstream_sock, const std::string& user, const std::string& pass) {
     std::vector<char> auth_req;
     auth_req.push_back(0x01); // Subnegotiation version
     auth_req.push_back(static_cast<char>(user.size()));
@@ -378,14 +388,14 @@ bool ProxyServer::authenticate_socks5(int upstream_sock, const std::string& user
     auth_req.push_back(static_cast<char>(pass.size()));
     auth_req.insert(auth_req.end(), pass.begin(), pass.end());
 
-    if (send(upstream_sock, auth_req.data(), auth_req.size(), 0) != (ssize_t)auth_req.size()) return false;
+    if (send(upstream_sock, auth_req.data(), static_cast<int>(auth_req.size()), 0) != static_cast<int>(auth_req.size())) return false;
 
     char resp[2];
     if (recv(upstream_sock, resp, 2, 0) != 2) return false;
     return resp[1] == 0x00; // Success
 }
 
-bool ProxyServer::perform_socks4_handshake(int upstream_sock, const std::string& target_host, int target_port, const std::string& user) {
+bool ProxyServer::perform_socks4_handshake(SocketHandle upstream_sock, const std::string& target_host, int target_port, const std::string& user) {
     struct hostent *he = gethostbyname(target_host.c_str());
     if (!he || he->h_addrtype != AF_INET) return false;
 
@@ -407,7 +417,7 @@ bool ProxyServer::perform_socks4_handshake(int upstream_sock, const std::string&
     }
     req.push_back(0x00);
     
-    if (send(upstream_sock, req.data(), req.size(), 0) != (ssize_t)req.size()) return false;
+    if (send(upstream_sock, req.data(), static_cast<int>(req.size()), 0) != static_cast<int>(req.size())) return false;
 
     char resp[8];
     if (recv(upstream_sock, resp, 8, 0) != 8) return false;
@@ -425,9 +435,17 @@ void ProxyServer::inject_http_auth(std::string& buffer, const std::string& user,
     }
 }
 
-void ProxyServer::tunnel_traffic(int client_sock, int upstream_sock) {
+void ProxyServer::tunnel_traffic(SocketHandle client_sock, SocketHandle upstream_sock) {
     fd_set fds;
-    int max_fd = std::max(client_sock, upstream_sock);
+    
+    // On Windows, select() first arg is ignored. On Unix, it's max_fd + 1.
+    // We cast to int for Unix compliance, though SocketHandle can be large on Windows.
+    #ifdef _WIN32
+        int max_fd = 0; 
+    #else
+        int max_fd = std::max(client_sock, upstream_sock);
+    #endif
+
     char buffer[BUFFER_SIZE];
     
     while (true) {
@@ -445,13 +463,13 @@ void ProxyServer::tunnel_traffic(int client_sock, int upstream_sock) {
         if (FD_ISSET(client_sock, &fds)) {
             ssize_t n = recv(client_sock, buffer, sizeof(buffer), 0);
             if (n <= 0) break;
-            send(upstream_sock, buffer, n, 0);
+            send(upstream_sock, buffer, static_cast<int>(n), 0);
         }
         
         if (FD_ISSET(upstream_sock, &fds)) {
             ssize_t n = recv(upstream_sock, buffer, sizeof(buffer), 0);
             if (n <= 0) break;
-            send(client_sock, buffer, n, 0);
+            send(client_sock, buffer, static_cast<int>(n), 0);
         }
     }
 }
