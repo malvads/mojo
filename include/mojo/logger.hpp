@@ -5,12 +5,12 @@
 namespace Mojo {
 
 enum LogLevel {
-    NONE    = 0,
-    INFO    = 1 << 0,
-    WARN    = 1 << 1,
-    ERROR   = 1 << 2,
-    SUCCESS = 1 << 3,
-    ALL     = INFO | WARN | ERROR | SUCCESS
+    LOG_NONE    = 0,
+    LOG_INFO    = 1 << 0,
+    LOG_WARN    = 1 << 1,
+    LOG_ERROR   = 1 << 2,
+    LOG_SUCCESS = 1 << 3,
+    LOG_ALL     = LOG_INFO | LOG_WARN | LOG_ERROR | LOG_SUCCESS
 };
 
 class Logger {
