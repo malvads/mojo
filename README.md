@@ -61,6 +61,9 @@ graph TD
     M -- "Traffic" --> K
     K -- "Auto-Rotate" --> N[External Proxy B]
     end
+
+    %% Force subgraphs to be one below the other
+    F ~~~ H
 ```
 
 **Why is this better?**
