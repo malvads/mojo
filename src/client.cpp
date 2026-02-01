@@ -7,6 +7,7 @@ namespace Mojo {
 namespace {
     struct RequestContext {
         std::string* body;
+        std::string content_type;
         bool is_image = false;
     };
 
@@ -24,14 +25,25 @@ namespace {
         RequestContext* ctx = static_cast<RequestContext*>(userp);
         
         std::string header(buffer, total_size);
-        // Normalize to lowercase for checking
-        for (char& c : header) c = std::tolower(c);
+        // Normalize to lowercase for checking logic, but maybe store original? No, lowercase is fine for detection.
+        std::string header_lower = header;
+        for (char& c : header_lower) c = std::tolower(c);
 
-        if (header.find("content-type:") != std::string::npos) {
+        if (header_lower.find("content-type:") != std::string::npos) {
             // Check if content-type contains "image/"
-            if (header.find("image/") != std::string::npos) {
+            if (header_lower.find("image/") != std::string::npos) {
                 ctx->is_image = true;
                 return 0; // Signal libcurl to abort transfer
+            }
+            // Capture the value
+            size_t colon = header.find(':'); // Use original case for splitting
+            if (colon != std::string::npos) {
+                 // Trim whitespace
+                 std::string val = header.substr(colon + 1);
+                 // Simple trim
+                 val.erase(0, val.find_first_not_of(" \t\r\n"));
+                 val.erase(val.find_last_not_of(" \t\r\n") + 1);
+                 ctx->content_type = val;
             }
         }
         return total_size;
@@ -110,6 +122,7 @@ Response Client::get(const std::string& url) {
     
     response.status_code = response_code;
     response.body = std::move(buffer);
+    response.content_type = ctx.content_type;
     
     if (response_code >= 400) {
         response.success = false; // HTTP Error is still a "success" for CURL, but "failure" for scraping usually

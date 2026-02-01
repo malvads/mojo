@@ -12,6 +12,7 @@ struct Response {
     std::string body;
     std::string error;
     std::string effective_url; // Final URL after redirects
+    std::string content_type;
 };
 
 class Client {

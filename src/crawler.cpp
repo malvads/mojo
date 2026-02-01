@@ -125,19 +125,25 @@ void Crawler::worker_loop() {
                         // Use effective_url for resolution and saving (handle redirects)
                         std::string base_url = !res.effective_url.empty() ? res.effective_url : current_url;
 
-                        std::string markdown = Converter::to_markdown(res.body);
-                        save_markdown(base_url, markdown);
+                        if (res.content_type == "application/pdf" || current_url.substr(current_url.length() - 4) == ".pdf") {
+                             // Save PDF directly
+                             save_file(base_url, res.body, ".pdf");
+                        } else {
+                            // Convert to Markdown
+                            std::string markdown = Converter::to_markdown(res.body);
+                            save_markdown(base_url, markdown);
 
-                        if (depth < max_depth_) {
-                            std::vector<std::string> links = Converter::extract_links(res.body);
-                            int next_depth = depth + 1;
-                            
-                            for (const auto& link : links) {
-                                std::string absolute_link = Url::resolve(base_url, link);
-                                if (absolute_link.empty()) continue;
-                                if (!Url::is_same_domain(start_domain_, absolute_link)) continue;
+                            if (depth < max_depth_) {
+                                std::vector<std::string> links = Converter::extract_links(res.body);
+                                int next_depth = depth + 1;
                                 
-                                add_url(std::move(absolute_link), next_depth);
+                                for (const auto& link : links) {
+                                    std::string absolute_link = Url::resolve(base_url, link);
+                                    if (absolute_link.empty()) continue;
+                                    if (!Url::is_same_domain(start_domain_, absolute_link)) continue;
+                                    
+                                    add_url(std::move(absolute_link), next_depth);
+                                }
                             }
                         }
                      } else {
