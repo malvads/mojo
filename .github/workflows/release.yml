@@ -57,6 +57,11 @@ jobs:
         vcpkg install curl gumbo --triplet ${{ matrix.triplet }}
         vcpkg integrate install
 
+    - name: Get Version
+      id: get_version
+      shell: bash
+      run: echo "PROJECT_VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_ENV
+
     # --- Config & Build ---
     - name: Configure CMake
       shell: bash
@@ -78,18 +83,24 @@ jobs:
       if: runner.os != 'Windows'
       run: |
         cd build
-        tar -czvf ../${{ matrix.archive_name }} mojo
+        # Create archive with version in name
+        tar -czvf ../mojo-${{ env.PROJECT_VERSION }}-${{ matrix.target }}.tar.gz mojo
 
     # --- Package (Windows) ---
     - name: Package Binary (Windows)
       if: runner.os == 'Windows'
+      shell: bash
       run: |
         cd build/Release
-        7z a ../../${{ matrix.archive_name }} mojo.exe
+        # Create archive with version in name
+        7z a ../../mojo-${{ env.PROJECT_VERSION }}-${{ matrix.target }}.zip mojo.exe
 
     # --- Upload Release Asset ---
     - name: Upload Release Asset
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: ${{ matrix.archive_name }}
+        files: |
+          mojo-${{ env.PROJECT_VERSION }}-${{ matrix.target }}.tar.gz
+          mojo-${{ env.PROJECT_VERSION }}-${{ matrix.target }}.zip
+        name: Release v${{ env.PROJECT_VERSION }}
