@@ -31,11 +31,10 @@ file(GLOB_RECURSE SOURCES "src/*.cpp")
 add_executable(mojo ${SOURCES})
 
 # Linking
-target_link_libraries(mojo PRIVATE 
     ${CURL_LIBRARIES}
     ${GUMBO_LIBRARY}
     ${WEBSOCKETS_LIBRARY}
     nlohmann_json::nlohmann_json
-    yaml-cpp
+    yaml-cpp::yaml-cpp
     Threads::Threads
 )
