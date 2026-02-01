@@ -22,6 +22,8 @@ jobs:
             os: macos-15
           - name: macOS 14 (Sonoma - Previous)
             os: macos-14
+          - name: macOS 13 (Ventura - Intel)
+            os: macos-13
           - name: Windows 2025 (Server - Latest)
             os: windows-2025
             triplet: x64-windows
