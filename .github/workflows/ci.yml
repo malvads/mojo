@@ -39,19 +39,19 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev
+        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev
 
     # --- macOS Dependencies ---
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
-        brew install curl gumbo-parser libwebsockets nlohmann-json
+        brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp
 
     # --- Windows Dependencies (Vcpkg) ---
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
-        vcpkg install curl gumbo nlohmann-json libwebsockets --triplet ${{ matrix.triplet }}
+        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp --triplet ${{ matrix.triplet }}
         vcpkg integrate install
 
     # --- Build (Standard) ---
@@ -78,7 +78,7 @@ jobs:
     - name: Install Build Tools
       run: |
         dnf -y update
-        dnf -y install git cmake make gcc-c++ libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel
+        dnf -y install git cmake make gcc-c++ libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel
 
     - uses: actions/checkout@v4
 
