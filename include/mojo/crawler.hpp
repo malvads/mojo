@@ -22,9 +22,13 @@ struct CrawlerConfig {
     int threads;
     std::string output_dir;
     bool tree_structure;
-    bool render_js;
+    bool render_js = false;
     std::string browser_path;
-    bool headless;
+    bool headless = true;
+    
+    std::string proxy_bind_ip = "127.0.0.1";
+    int proxy_bind_port = 0;
+    int cdp_port = 9222;
     std::vector<std::string> proxies;
     std::map<std::string, int> proxy_priorities;
     int proxy_retries;
@@ -42,6 +46,11 @@ private:
     std::string output_dir_;
     bool tree_structure_;
     bool use_proxies_;
+    
+    std::string proxy_bind_ip_;
+    int proxy_bind_port_;
+    int cdp_port_;
+    
     ProxyPool proxy_pool_;
     std::unique_ptr<ProxyServer> proxy_server_;
     

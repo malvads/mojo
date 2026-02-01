@@ -18,6 +18,9 @@ Crawler::Crawler(const CrawlerConfig& config)
       output_dir_(config.output_dir), tree_structure_(config.tree_structure),
       use_proxies_(!config.proxies.empty()),
       proxy_pool_(config.proxies, config.proxy_retries, config.proxy_priorities),
+      proxy_bind_ip_(config.proxy_bind_ip),
+      proxy_bind_port_(config.proxy_bind_port),
+      cdp_port_(config.cdp_port),
       render_js_(config.render_js),
       browser_path_(config.browser_path),
       headless_(config.headless) {}
@@ -40,7 +43,7 @@ void Crawler::start(const std::string& start_url) {
     if (!proxy_pool_.empty()) {
         Logger::info("Initialized Proxy Pool.");
         if (render_js_) {
-            proxy_server_ = std::make_unique<ProxyServer>(proxy_pool_);
+            proxy_server_ = std::make_unique<ProxyServer>(proxy_pool_, proxy_bind_ip_, proxy_bind_port_);
             proxy_server_->start();
             Logger::info("Local Proxy Gateway started on port " + std::to_string(proxy_server_->get_port()));
         }
@@ -49,7 +52,7 @@ void Crawler::start(const std::string& start_url) {
     if (render_js_) {
         std::string p_url;
         if (proxy_server_) {
-            p_url = "127.0.0.1:" + std::to_string(proxy_server_->get_port());
+            p_url = proxy_bind_ip_ + ":" + std::to_string(proxy_server_->get_port());
         }
         
         std::string path = browser_path_;
@@ -60,8 +63,8 @@ void Crawler::start(const std::string& start_url) {
             return;
         }
 
-        // 9222 is default CDP port.
-        if (!BrowserLauncher::launch(path, 9222, headless_, p_url)) {
+        // Launch Browser
+        if (!BrowserLauncher::launch(path, cdp_port_, headless_, p_url)) {
             Logger::error("Failed to launch browser.");
             return;
         }

@@ -19,7 +19,6 @@ public:
      */
     std::string render(const std::string& url);
     
-    // Low-level API for Puppeteer-like usage
     bool connect();
     bool navigate(const std::string& url);
     std::string evaluate(const std::string& expression);

@@ -52,10 +52,15 @@ Config Config::parse(int argc, char* argv[]) {
             }
         } else if (arg == "--no-headless") {
             config.headless = false;
-        } else if (arg == "-c" || arg == "--config") {
             if (i + 1 < argc) {
                 config.config_path = argv[++i];
             }
+        } else if (arg == "--proxy-bind-ip") {
+            if (i + 1 < argc) config.proxy_bind_ip = argv[++i];
+        } else if (arg == "--proxy-bind-port") {
+            if (i + 1 < argc) config.proxy_bind_port = std::stoi(argv[++i]);
+        } else if (arg == "--cdp-port") {
+            if (i + 1 < argc) config.cdp_port = std::stoi(argv[++i]);
         } else {
             config.urls.push_back(arg);
         }
@@ -74,6 +79,10 @@ Config Config::parse(int argc, char* argv[]) {
             if (yaml_config["headless"]) config.headless = yaml_config["headless"].as<bool>();
             if (yaml_config["browser_path"]) config.browser_path = yaml_config["browser_path"].as<std::string>();
             if (yaml_config["proxy_retries"]) config.proxy_retries = yaml_config["proxy_retries"].as<int>();
+            
+            if (yaml_config["proxy_bind_ip"]) config.proxy_bind_ip = yaml_config["proxy_bind_ip"].as<std::string>();
+            if (yaml_config["proxy_bind_port"]) config.proxy_bind_port = yaml_config["proxy_bind_port"].as<int>();
+            if (yaml_config["cdp_port"]) config.cdp_port = yaml_config["cdp_port"].as<int>();
 
             if (yaml_config["proxies"]) {
                 auto proxies_node = yaml_config["proxies"];
@@ -94,7 +103,6 @@ Config Config::parse(int argc, char* argv[]) {
                 }
             }
 
-            // Check for both "priorities" and "proxy_priorities"
             YAML::Node priorities_node;
             if (yaml_config["proxy_priorities"]) priorities_node = yaml_config["proxy_priorities"];
             else if (yaml_config["priorities"]) priorities_node = yaml_config["priorities"];
@@ -123,6 +131,9 @@ void Config::print_usage(const char* prog_name) {
               << "  -p, --proxy <url>     Single proxy (e.g., socks5://127.0.0.1:9050)\n"
               << "  --proxy-list <file>   File containing list of proxies\n"
               << "  --proxy-retries <n>   Max retries before removing a proxy (default: 3)\n"
+              << "  --proxy-bind-ip <ip>  Proxy Server bind IP (default: 127.0.0.1)\n"
+              << "  --proxy-bind-port <n> Proxy Server bind Port (default: 0 [random])\n"
+              << "  --cdp-port <n>        Chrome DevTools Protocol port (default: 9222)\n"
               << "  -o, --output <dir>    Output directory (default: mojo_out)\n"
               << "  --flat                Use flat structure (default: tree)\n"
               << "  --render              Enable JavaScript rendering (Experimental)\n"

@@ -23,6 +23,12 @@ struct Config {
     bool render_js = false;
     std::string browser_path;
     bool headless = true;
+    
+    // Configurable Ports/IPs
+    std::string proxy_bind_ip = "127.0.0.1";
+    int proxy_bind_port = 0; // 0 = Random
+    int cdp_port = 9222;
+
     bool show_help = false;
 
     static Config parse(int argc, char* argv[]);

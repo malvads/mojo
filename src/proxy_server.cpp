@@ -1,14 +1,27 @@
 #include <iostream>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <cstring>
+#include <iostream>
 #include <thread>
 #include <vector>
+#include <sstream>
+#include <cstring>
+
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #pragma comment(lib, "ws2_32.lib")
+    
+    using socklen_t = int;
+    #define close closesocket
+    #define SHUT_RDWR SD_BOTH
+#else
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <netdb.h>
+    #include <unistd.h>
+    #include <arpa/inet.h>
+    #include <fcntl.h>
+#endif
 
 #include "mojo/proxy_server.hpp"
 #include "mojo/logger.hpp"
@@ -16,36 +29,74 @@
 
 namespace Mojo {
 
-ProxyServer::ProxyServer(ProxyPool& proxy_pool) : proxy_pool_(proxy_pool) {}
+namespace {
+    constexpr int BUFFER_SIZE = 8192;
+    constexpr int CONNECTION_TIMEOUT_SEC = 60;
+    
+    constexpr char SOCKS_VER_5 = 0x05;
+    constexpr char SOCKS_AUTH_NONE = 0x00;
+    constexpr char SOCKS_AUTH_USERPASS = 0x02;
+    constexpr char SOCKS_CMD_CONNECT = 0x01;
+    constexpr char SOCKS_ATYP_DOMAIN = 0x03;
+    constexpr char SOCKS_ATYP_IPV4 = 0x01;
+    constexpr char SOCKS_ATYP_IPV6 = 0x04;
+
+    constexpr char SOCKS_VER_4 = 0x04;
+    constexpr char SOCKS_CMD_CONNECT_V4 = 0x01;
+
+    std::string base64_encode(const std::string& in) {
+        std::string out;
+        int val = 0, valb = -6;
+        for (unsigned char c : in) {
+            val = (val << 8) + c;
+            valb += 8;
+            while (valb >= 0) {
+                out.push_back("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[(val >> valb) & 0x3F]);
+                valb -= 6;
+            }
+        }
+        if (valb > -6) out.push_back("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[((val << 8) >> (valb + 8)) & 0x3F]);
+        while (out.size() % 4) out.push_back('=');
+        return out;
+    }
+}
+
+ProxyServer::ProxyServer(ProxyPool& proxy_pool, const std::string& bind_ip, int bind_port) 
+    : proxy_pool_(proxy_pool), bind_ip_(bind_ip), bind_port_(bind_port) {
+    #ifdef _WIN32
+        WSADATA wsaData;
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
+    #endif
+}
 
 ProxyServer::~ProxyServer() {
     stop();
+    #ifdef _WIN32
+        WSACleanup();
+    #endif
 }
 
 void ProxyServer::start() {
     if (running_) return;
     
-    // Create socket
     server_socket_ = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket_ < 0) {
         Logger::error("ProxyServer: Failed to create socket");
         return;
     }
 
-    // Bind to random port
     struct sockaddr_in serv_addr;
     std::memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    serv_addr.sin_port = 0; // Random port
+    serv_addr.sin_addr.s_addr = inet_addr(bind_ip_.c_str());
+    serv_addr.sin_port = htons(bind_port_); // Use configured port (or 0 for random)
 
     if (bind(server_socket_, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-        Logger::error("ProxyServer: Failed to bind");
+        Logger::error("ProxyServer: Failed to bind to " + bind_ip_ + ":" + std::to_string(bind_port_));
         close(server_socket_);
         return;
     }
 
-    // Get assigned port
     socklen_t len = sizeof(serv_addr);
     if (getsockname(server_socket_, (struct sockaddr *)&serv_addr, &len) == -1) {
         Logger::error("ProxyServer: getsockname failed");
@@ -56,7 +107,7 @@ void ProxyServer::start() {
 
     listen(server_socket_, 50);
     running_ = true;
-    Logger::info("ProxyServer: Listening on 127.0.0.1:" + std::to_string(port_));
+    Logger::info("ProxyServer: Listening on " + bind_ip_ + ":" + std::to_string(port_));
 
     server_thread_ = std::thread(&ProxyServer::accept_loop, this);
 }
@@ -92,28 +143,11 @@ void ProxyServer::accept_loop() {
     }
 }
 
-namespace {
-    constexpr int BUFFER_SIZE = 8192;
-    constexpr int CONNECTION_TIMEOUT_SEC = 60;
-    
-    // SOCKS5 Constants
-    constexpr char SOCKS_VER_5 = 0x05;
-    constexpr char SOCKS_AUTH_NONE = 0x00;
-    constexpr char SOCKS_CMD_CONNECT = 0x01;
-    constexpr char SOCKS_ATYP_DOMAIN = 0x03;
-    constexpr char SOCKS_ATYP_IPV4 = 0x01;
-    constexpr char SOCKS_ATYP_IPV6 = 0x04;
-
-    // SOCKS4 Constants
-    constexpr char SOCKS_VER_4 = 0x04;
-    constexpr char SOCKS_CMD_CONNECT_V4 = 0x01;
-}
-
 void ProxyServer::handle_client(int client_socket) {
-    std::string initial_buffer_str;
-    ssize_t initial_n = 0;
+    std::string initial_buffer;
+    ssize_t initial_len = 0;
     
-    auto target_opt = parse_initial_request(client_socket, initial_buffer_str, initial_n);
+    auto target_opt = parse_initial_request(client_socket, initial_buffer, initial_len);
     if (!target_opt) {
         close(client_socket);
         return;
@@ -136,38 +170,39 @@ void ProxyServer::handle_client(int client_socket) {
         return;
     }
 
-    bool tunnel_ready = false;
     bool handshake_success = false;
 
     if (p_info.scheme.find("socks5") != std::string::npos) {
-        handshake_success = perform_socks5_handshake(upstream_sock, target.host, target.port);
+        handshake_success = perform_socks5_handshake(upstream_sock, target.host, target.port, p_info.user, p_info.pass);
         if (!handshake_success) Logger::error("ProxyServer: SOCKS5 handshake failed: " + p_info.host);
     } 
     else if (p_info.scheme.find("socks4") != std::string::npos) {
-        handshake_success = perform_socks4_handshake(upstream_sock, target.host, target.port);
+        handshake_success = perform_socks4_handshake(upstream_sock, target.host, target.port, p_info.user);
         if (!handshake_success) Logger::error("ProxyServer: SOCKS4 handshake failed: " + p_info.host);
     } 
     else {
-        // HTTP/HTTPS Proxy: Blind forwarding
-        // Generally standard HTTP proxies accept CONNECT/GET as-is.
+        if (!p_info.user.empty()) {
+            inject_http_auth(initial_buffer, p_info.user, p_info.pass);
+        }
         handshake_success = true;
     }
 
     if (handshake_success) {
-        if (target.is_connect && (p_info.scheme.find("socks") != std::string::npos)) {
-            // HTTPS via SOCKS: We must simulate the HTTP 200 OK because the SOCKS server just gives raw TCP.
+        bool is_socks = p_info.scheme.find("socks") != std::string::npos;
+
+        if (target.is_connect && is_socks) {
             const std::string ok = "HTTP/1.1 200 Connection Established\r\n\r\n";
             send(client_socket, ok.c_str(), ok.size(), 0);
-        } else {
-            // HTTP via SOCKS / HTTPS via HTTP Proxy
-            if (!target.is_connect || (p_info.scheme.find("socks") == std::string::npos)) {
-                 send(upstream_sock, initial_buffer_str.data(), initial_n, 0);
+        } 
+        else {
+            // HTTP request via SOCKS or any request via HTTP Proxy
+            // If HTTP Proxy, we send the (potentially modified) initial buffer
+            // If SOCKS, we send the raw HTTP buffer through the tunnel
+            if (!target.is_connect || !is_socks) {
+                 send(upstream_sock, initial_buffer.data(), initial_buffer.size(), 0);
             }
         }
-        tunnel_ready = true;
-    }
-
-    if (tunnel_ready) {
+        
         Logger::info("Tunnel: Chrome -> " + p_info.host + " -> " + target.host);
         tunnel_traffic(client_socket, upstream_sock);
         proxy_pool_.report(*proxy_opt, true);
@@ -187,7 +222,6 @@ std::optional<ProxyServer::TargetInfo> ProxyServer::parse_initial_request(int cl
     out_buffer.assign(buffer, out_len);
     TargetInfo info;
     
-    // Parse CONNECT (HTTPS)
     if (out_buffer.find("CONNECT") == 0) {
         info.is_connect = true;
         size_t space1 = out_buffer.find(' ');
@@ -203,7 +237,6 @@ std::optional<ProxyServer::TargetInfo> ProxyServer::parse_initial_request(int cl
             }
         }
     } else {
-        // Parse GET/POST (HTTP) via Host header
         info.is_connect = false;
         size_t host_pos = out_buffer.find("Host: ");
         if (host_pos != std::string::npos) {
@@ -239,7 +272,14 @@ ProxyServer::ParsedProxy ProxyServer::parse_proxy_url(const std::string& url_str
     
     size_t at_pos = p_url.find('@');
     if (at_pos != std::string::npos) {
-        info.auth = p_url.substr(0, at_pos);
+        std::string auth = p_url.substr(0, at_pos);
+        size_t colon = auth.find(':');
+        if (colon != std::string::npos) {
+            info.user = auth.substr(0, colon);
+            info.pass = auth.substr(colon + 1);
+        } else {
+            info.user = auth;
+        }
         p_url = p_url.substr(at_pos + 1);
     }
     
@@ -277,15 +317,21 @@ int ProxyServer::connect_to_upstream(const std::string& host, int port) {
     return sock;
 }
 
-bool ProxyServer::perform_socks5_handshake(int upstream_sock, const std::string& target_host, int target_port) {
-    // 1. Auth Negotiation (Support No Auth)
-    char greeting[] = { SOCKS_VER_5, 0x01, SOCKS_AUTH_NONE };
-    if (send(upstream_sock, greeting, sizeof(greeting), 0) != sizeof(greeting)) return false;
+bool ProxyServer::perform_socks5_handshake(int upstream_sock, const std::string& target_host, int target_port, const std::string& user, const std::string& pass) {
+    bool auth_required = !user.empty();
+    std::vector<char> greeting = { SOCKS_VER_5, 0x01, auth_required ? SOCKS_AUTH_USERPASS : SOCKS_AUTH_NONE };
+    
+    if (send(upstream_sock, greeting.data(), greeting.size(), 0) != (ssize_t)greeting.size()) return false;
 
     char resp[2];
-    if (recv(upstream_sock, resp, 2, 0) != 2 || resp[0] != SOCKS_VER_5 || resp[1] != SOCKS_AUTH_NONE) return false;
+    if (recv(upstream_sock, resp, 2, 0) != 2 || resp[0] != SOCKS_VER_5) return false;
 
-    // 2. Connection Request
+    if (resp[1] == SOCKS_AUTH_USERPASS) {
+        if (!authenticate_socks5(upstream_sock, user, pass)) return false;
+    } else if (resp[1] != SOCKS_AUTH_NONE) {
+        return false; // Unsupported auth method
+    }
+
     std::vector<char> req;
     req.push_back(SOCKS_VER_5); 
     req.push_back(SOCKS_CMD_CONNECT); 
@@ -299,12 +345,10 @@ bool ProxyServer::perform_socks5_handshake(int upstream_sock, const std::string&
 
     if (send(upstream_sock, req.data(), req.size(), 0) != (ssize_t)req.size()) return false;
 
-    // 3. Read Response Header (VER, REP, RSV, ATYP)
     char header[4];
     if (recv(upstream_sock, header, 4, 0) != 4) return false;
-    if (header[1] != 0x00) return false; // Non-zero REP indicates failure
+    if (header[1] != 0x00) return false; 
 
-    // 4. Drain Address Field
     int skip = 0;
     switch (header[3]) {
         case SOCKS_ATYP_IPV4: skip = 4 + 2; break;
@@ -319,24 +363,31 @@ bool ProxyServer::perform_socks5_handshake(int upstream_sock, const std::string&
     }
     
     if (skip > 0) {
-        char dump[256]; // Max domain len is 255
+        char dump[256];
         recv(upstream_sock, dump, skip, 0); 
     }
     
     return true;
 }
 
-bool ProxyServer::perform_socks4_handshake(int upstream_sock, const std::string& target_host, int target_port) {
-    // SOCKS4 Connect Request:
-    // VER(1) CMD(1) DSTPORT(2) DSTIP(4) USERID(var) NULL(1)
-    
-    // Resolve target host to IPv4 (SOCKS4 doesn't support domain resolution typically, SOCKS4a does)
-    // We will attempt to resolve here.
+bool ProxyServer::authenticate_socks5(int upstream_sock, const std::string& user, const std::string& pass) {
+    std::vector<char> auth_req;
+    auth_req.push_back(0x01); // Subnegotiation version
+    auth_req.push_back(static_cast<char>(user.size()));
+    auth_req.insert(auth_req.end(), user.begin(), user.end());
+    auth_req.push_back(static_cast<char>(pass.size()));
+    auth_req.insert(auth_req.end(), pass.begin(), pass.end());
+
+    if (send(upstream_sock, auth_req.data(), auth_req.size(), 0) != (ssize_t)auth_req.size()) return false;
+
+    char resp[2];
+    if (recv(upstream_sock, resp, 2, 0) != 2) return false;
+    return resp[1] == 0x00; // Success
+}
+
+bool ProxyServer::perform_socks4_handshake(int upstream_sock, const std::string& target_host, int target_port, const std::string& user) {
     struct hostent *he = gethostbyname(target_host.c_str());
-    if (!he || he->h_addrtype != AF_INET) {
-        // Fallback or fail. SOCKS4a could be supported but let's stick to SOCKS4 (IPv4)
-        return false;
-    }
+    if (!he || he->h_addrtype != AF_INET) return false;
 
     std::vector<char> req;
     req.push_back(SOCKS_VER_4);
@@ -345,25 +396,33 @@ bool ProxyServer::perform_socks4_handshake(int upstream_sock, const std::string&
     req.push_back(static_cast<char>((target_port >> 8) & 0xFF));
     req.push_back(static_cast<char>(target_port & 0xFF));
     
-    // IP Address (4 bytes)
     req.push_back(he->h_addr_list[0][0]);
     req.push_back(he->h_addr_list[0][1]);
     req.push_back(he->h_addr_list[0][2]);
     req.push_back(he->h_addr_list[0][3]);
     
-    // UserID (Empty + NULL terminator)
+    // UserID
+    if (!user.empty()) {
+        req.insert(req.end(), user.begin(), user.end());
+    }
     req.push_back(0x00);
     
     if (send(upstream_sock, req.data(), req.size(), 0) != (ssize_t)req.size()) return false;
 
-    // Response: VN(1) CD(1) DSTPORT(2) DSTIP(4)
-    // VN=0, CD=90(0x5A) means granted.
     char resp[8];
     if (recv(upstream_sock, resp, 8, 0) != 8) return false;
     
-    if (resp[1] != 0x5A) return false; // 90 = Request granted
+    return resp[1] == 0x5A;
+}
+
+void ProxyServer::inject_http_auth(std::string& buffer, const std::string& user, const std::string& pass) {
+    std::string auth_str = user + ":" + pass;
+    std::string auth_header = "Proxy-Authorization: Basic " + base64_encode(auth_str) + "\r\n";
     
-    return true;
+    size_t first_crlf = buffer.find("\r\n");
+    if (first_crlf != std::string::npos) {
+        buffer.insert(first_crlf + 2, auth_header);
+    }
 }
 
 void ProxyServer::tunnel_traffic(int client_sock, int upstream_sock) {
@@ -381,7 +440,7 @@ void ProxyServer::tunnel_traffic(int client_sock, int upstream_sock) {
         tv.tv_usec = 0;
         
         int activity = select(max_fd + 1, &fds, NULL, NULL, &tv);
-        if (activity <= 0) break; // Timeout or error
+        if (activity <= 0) break;
         
         if (FD_ISSET(client_sock, &fds)) {
             ssize_t n = recv(client_sock, buffer, sizeof(buffer), 0);
