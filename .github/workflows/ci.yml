@@ -24,36 +24,30 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    # --- Linux Dependencies ---
     - name: Install Dependencies (Linux)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev
 
-    # --- macOS Dependencies ---
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
         brew install curl gumbo-parser
 
-    # --- Windows Dependencies (Vcpkg) ---
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
         vcpkg install curl gumbo --triplet ${{ matrix.triplet }}
         vcpkg integrate install
 
-    # --- Build (General) ---
     - name: Configure CMake
       run: |
         mkdir build
         cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release
       env:
-         # For Windows to find vcpkg toolchain automatically if integrated, 
-         # or we might need explicit toolchain file. GitHub runners usually have vcpkg at $VCPKG_INSTALLATION_ROOT.
-         CMAKE_TOOLCHAIN_FILE: ${{ runner.os == 'Windows' && '$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake' || '' }}
+        CMAKE_TOOLCHAIN_FILE: ${{ runner.os == 'Windows' && '$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake' || '' }}
 
     - name: Build
       run: |
