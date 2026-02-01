@@ -1,0 +1,60 @@
+name: Build Mojo
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        # Windows requires slightly more setup with vcpkg caching which is verbose for this snippet, 
+        # but let's try a basic cmake build and assume standard runners might have some libs or fail gracefully.
+        # For robustness, we stick to *nix first, but I will add windows-latest with vcpkg setup.
+        include:
+          - os: windows-latest
+            triplet: x64-windows
+
+    steps:
+    - uses: actions/checkout@v3
+
+    # --- Linux Dependencies ---
+    - name: Install Dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev
+
+    # --- macOS Dependencies ---
+    - name: Install Dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install curl gumbo-parser
+
+    # --- Windows Dependencies (Vcpkg) ---
+    - name: Install Dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        vcpkg install curl gumbo --triplet ${{ matrix.triplet }}
+        vcpkg integrate install
+
+    # --- Build (General) ---
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+      env:
+         # For Windows to find vcpkg toolchain automatically if integrated, 
+         # or we might need explicit toolchain file. GitHub runners usually have vcpkg at $VCPKG_INSTALLATION_ROOT.
+         CMAKE_TOOLCHAIN_FILE: ${{ runner.os == 'Windows' && '$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake' || '' }}
+
+    - name: Build
+      run: |
+        cmake --build build --config Release

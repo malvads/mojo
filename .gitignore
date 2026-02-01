@@ -1,0 +1,17 @@
+# Build artifacts
+build/
+obj/
+bin/
+mojo
+
+# Output
+mojo_out/
+*.md
+
+# System
+.DS_Store
+*.swp
+*.o
+
+# User config
+proxies.txt
