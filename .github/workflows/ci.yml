@@ -7,47 +7,74 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  build:
-    name: ${{ matrix.os }}
+  build-standard:
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        # Windows requires slightly more setup with vcpkg caching which is verbose for this snippet, 
-        # but let's try a basic cmake build and assume standard runners might have some libs or fail gracefully.
-        # For robustness, we stick to *nix first, but I will add windows-latest with vcpkg setup.
         include:
-          - os: windows-latest
+          - name: Ubuntu 24.04
+            os: ubuntu-24.04
+          - name: macOS 14 (Sonoma)
+            os: macos-14
+          - name: Windows 2022
+            os: windows-2022
             triplet: x64-windows
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    - name: Install Dependencies (Linux)
+    # --- Linux (Ubuntu) Dependencies ---
+    - name: Install Dependencies (Ubuntu)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev
 
+    # --- macOS Dependencies ---
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
         brew install curl gumbo-parser
 
+    # --- Windows Dependencies (Vcpkg) ---
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
         vcpkg install curl gumbo --triplet ${{ matrix.triplet }}
         vcpkg integrate install
 
+    # --- Build (Standard) ---
     - name: Configure CMake
       run: |
         mkdir build
         cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release
       env:
-        CMAKE_TOOLCHAIN_FILE: ${{ runner.os == 'Windows' && '$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake' || '' }}
+         CMAKE_TOOLCHAIN_FILE: ${{ runner.os == 'Windows' && '$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake' || '' }}
+
+    - name: Build
+      run: |
+        cmake --build build --config Release
+
+  build-fedora:
+    name: Fedora 41 (Latest)
+    runs-on: ubuntu-24.04
+    container: fedora:41
+    steps:
+    - name: Install Build Tools
+      run: |
+        dnf -y update
+        dnf -y install git cmake make gcc-c++ libcurl-devel gumbo-parser-devel
+
+    - uses: actions/checkout@v4
+
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
       run: |
