@@ -1,5 +1,6 @@
 #include "mojo/client.hpp"
 #include "mojo/logger.hpp"
+#include "mojo/constants.hpp"
 #include <curl/curl.h>
 
 namespace Mojo {
@@ -89,9 +90,9 @@ Response Client::get(const std::string& url) {
     curl_easy_setopt(curl_, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt(curl_, CURLOPT_HEADERDATA, &ctx);
     curl_easy_setopt(curl_, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl_, CURLOPT_USERAGENT, "Mojo/1.0");
+    curl_easy_setopt(curl_, CURLOPT_USERAGENT, Constants::USER_AGENT);
     curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
-    curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 3L);
+    curl_easy_setopt(curl_, CURLOPT_TIMEOUT, static_cast<long>(Constants::REQUEST_TIMEOUT_SECONDS));
 
     CURLcode res = curl_easy_perform(curl_);
     
@@ -99,9 +100,6 @@ Response Client::get(const std::string& url) {
         if (ctx.is_image) {
             response.success = false;
             response.error = "Skipped: Image detected";
-            // We can return early, but maybe we want status code if available? 
-            // Usually aborted transfer might not have status code set yet or partially.
-            // But let's check info anyway.
         } else {
             response.success = false;
             response.error = curl_easy_strerror(res);
@@ -125,7 +123,7 @@ Response Client::get(const std::string& url) {
     response.content_type = ctx.content_type;
     
     if (response_code >= 400) {
-        response.success = false; // HTTP Error is still a "success" for CURL, but "failure" for scraping usually
+        response.success = false;
         response.error = "HTTP " + std::to_string(response_code);
     } else {
         response.success = true;

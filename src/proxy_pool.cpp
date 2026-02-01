@@ -10,13 +10,12 @@ ProxyPool::ProxyPool(const std::vector<std::string>& proxies) {
         p.url = url;
         p.id = id_counter++;
         
-        // Determine Priority
         if (url.find("socks5") != std::string::npos) {
-            p.priority = 2;
+            p.priority = ProxyPriority::SOCKS5;
         } else if (url.find("socks4") != std::string::npos) {
-            p.priority = 1;
+            p.priority = ProxyPriority::SOCKS4;
         } else {
-            p.priority = 0;
+            p.priority = ProxyPriority::HTTP;
         }
         
         queue_.push(p);
@@ -36,7 +35,6 @@ std::optional<Proxy> ProxyPool::get_proxy() {
 void ProxyPool::report(Proxy p, bool success) {
     std::lock_guard<std::mutex> lock(mutex_);
     
-    // Rotate: Assign new ID to send to back of queue (for same priority)
     p.id = next_id_++;
 
     if (success) {

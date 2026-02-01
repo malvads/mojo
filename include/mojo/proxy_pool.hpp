@@ -8,10 +8,16 @@
 
 namespace Mojo {
 
+enum class ProxyPriority {
+    HTTP = 0,
+    SOCKS4 = 1,
+    SOCKS5 = 2
+};
+
 struct Proxy {
     std::string url;
     int failure_count = 0;
-    int priority = 0; // 2=SOCKS5, 1=SOCKS4, 0=HTTP/HTTPS
+    ProxyPriority priority = ProxyPriority::HTTP;
     size_t id = 0;    // Stable ordering tie-breaker
 
     // Priority Queue is Max-Heap. We want higher priority at top.

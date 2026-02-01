@@ -9,6 +9,7 @@
 #include <atomic>
 
 #include "mojo/proxy_pool.hpp"
+#include "mojo/bloom_filter.hpp"
 
 namespace Mojo {
 
@@ -29,10 +30,9 @@ private:
     
     std::vector<std::thread> workers_;
     std::queue<std::pair<std::string, int>> frontier_;
-    std::unordered_set<std::string> visited_;
+    BloomFilter visited_filter_;
     
     std::mutex queue_mutex_;
-    std::mutex visited_mutex_;
     std::condition_variable cv_;
     
     std::atomic<int> active_workers_{0};
@@ -40,6 +40,9 @@ private:
     std::string start_domain_;
 
     void worker_loop();
+    void process_task(Client& client, std::string url, int depth);
+    bool fetch_with_retry(Client& client, const std::string& url, int depth);
+    void handle_response(const std::string& url, int depth, const Response& res);
     void save_markdown(const std::string& url, const std::string& content);
     void save_file(const std::string& url, const std::string& content, const std::string& extension);
     void add_url(std::string url, int depth);

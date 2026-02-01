@@ -9,9 +9,6 @@ namespace Mojo {
 
 namespace {
 
-// Internal helpers specific to extraction if needed, but for now we only need collect_links
-
-
 void collect_links(GumboNode* node, std::vector<std::string>& links) {
     if (node->type != GUMBO_NODE_ELEMENT) return;
     
