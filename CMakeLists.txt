@@ -14,6 +14,7 @@ find_path(GUMBO_INCLUDE_DIR NAMES gumbo.h REQUIRED)
 find_package(Threads REQUIRED)
 
 # Include Directories
+include_directories(
     include
     include/vendor
     ${GUMBO_INCLUDE_DIR}
