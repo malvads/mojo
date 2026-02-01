@@ -20,7 +20,7 @@ jobs:
             target: linux-x86_64
             archive_name: mojo-linux-x86_64.tar.gz
             asset_path: build/mojo
-          - os: macos-14
+          - os: macos-15
             target: macos-arm64
             archive_name: mojo-macos-arm64.tar.gz
             asset_path: build/mojo
@@ -28,7 +28,7 @@ jobs:
             target: macos-x86_64
             archive_name: mojo-macos-x86_64.tar.gz
             asset_path: build/mojo
-          - os: windows-2022
+          - os: windows-2025
             target: windows-x64
             archive_name: mojo-windows-x64.zip
             asset_path: build/Release/mojo.exe

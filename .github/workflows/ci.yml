@@ -14,15 +14,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Ubuntu 24.04 (Latest LTS)
+          - name: Ubuntu 24.04 (Noble - Latest LTS)
             os: ubuntu-24.04
-          - name: Ubuntu 22.04 (Previous LTS)
+          - name: Ubuntu 22.04 (Jammy - LTS)
             os: ubuntu-22.04
-          - name: macOS 14 (Sonoma - ARM64)
-            os: macos-14
+          - name: macOS 15 (Sequoia - ARM64)
+            os: macos-15
           - name: macOS 13 (Ventura - Intel)
             os: macos-13
-          - name: Windows 2022
+          - name: Windows 2025 (Server - Latest)
+            os: windows-2025
+            triplet: x64-windows
+          - name: Windows 2022 (Server - LTS)
             os: windows-2022
             triplet: x64-windows
 
