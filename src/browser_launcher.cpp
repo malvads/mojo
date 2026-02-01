@@ -83,8 +83,8 @@ bool BrowserLauncher::launch(const std::string& path, int port, bool headless) {
         for (const auto& s : arg_strings) args.push_back(s.c_str());
         args.push_back(nullptr);
 
-        freopen("/dev/null", "w", stdout);
-        freopen("/dev/null", "w", stderr);
+        if (freopen("/dev/null", "w", stdout) == NULL) {}
+        if (freopen("/dev/null", "w", stderr) == NULL) {}
 
         execv(path.c_str(), const_cast<char* const*>(args.data()));
         exit(1);

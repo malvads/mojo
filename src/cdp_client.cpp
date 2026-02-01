@@ -106,7 +106,7 @@ static int callback_cdp(struct lws *wsi, enum lws_callback_reasons reason, void 
 
 static struct lws_protocols protocols[] = {
     { "cdp", callback_cdp, 0, 1048576, 0, NULL, 0 },
-    LWS_PROTOCOL_LIST_TERM
+    { NULL, NULL, 0, 0, 0, NULL, 0 }
 };
 
 constexpr int kDefaultTimeout = 10;
