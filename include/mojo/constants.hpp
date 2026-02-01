@@ -39,6 +39,40 @@ inline const std::map<std::string, std::string>& get_mime_map() {
     return map;
 }
 
+inline const std::vector<std::string>& get_image_extensions() {
+    static const std::vector<std::string> extensions = {
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico", ".tiff", ".avif"
+    };
+    return extensions;
+}
+
+inline const std::vector<std::string>& get_file_extensions() {
+    static const std::vector<std::string> extensions = {
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", 
+        ".csv", ".zip", ".tar", ".gz", ".json", ".xml"
+    };
+    return extensions;
+}
+
+inline std::string get_matching_extension(const std::string& url, const std::vector<std::string>& extensions) {
+    if (url.empty()) return "";
+    
+    std::string url_lower = url;
+    for (char& c : url_lower) c = std::tolower(c);
+    
+    for (const auto& ext : extensions) {
+        if (url_lower.size() >= ext.size() && 
+            url_lower.compare(url_lower.size() - ext.size(), ext.size(), ext) == 0) {
+            return ext;
+        }
+    }
+    return "";
+}
+
+inline bool has_extension(const std::string& url, const std::vector<std::string>& extensions) {
+    return !get_matching_extension(url, extensions).empty();
+}
+
 inline std::string get_file_extension(const std::string& content_type, const std::string& url) {
     const auto& mime_map = get_mime_map();
     
@@ -48,22 +82,7 @@ inline std::string get_file_extension(const std::string& content_type, const std
         }
     }
 
-    std::string url_lower = url;
-    for(auto& c : url_lower) c = tolower(c);
-    
-    static const std::vector<std::string> known_exts = {
-        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", 
-        ".csv", ".zip", ".tar", ".gz", ".json", ".xml"
-    };
-    
-    for (const auto& known : known_exts) {
-        if (url_lower.length() >= known.length() && 
-            url_lower.substr(url_lower.length() - known.length()) == known) {
-            return known;
-        }
-    }
-
-    return "";
+    return get_matching_extension(url, get_file_extensions());
 }
 
 inline bool is_downloadable_mime(const std::string& content_type) {
@@ -79,7 +98,6 @@ inline bool is_downloadable_mime(const std::string& content_type) {
 
 inline std::chrono::milliseconds get_backoff_time(int attempt) {
     if (attempt <= 0) return std::chrono::milliseconds(0);
-    // 1s, 2s, 4s... converted to ms
     return std::chrono::milliseconds(1000 * (1 << (attempt - 1)));
 }
 

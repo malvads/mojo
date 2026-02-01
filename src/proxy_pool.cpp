@@ -1,5 +1,7 @@
 #include "mojo/proxy_pool.hpp"
 #include "mojo/logger.hpp"
+#include <algorithm>
+#include <limits>
 
 namespace Mojo {
 
@@ -10,46 +12,38 @@ ProxyPool::ProxyPool(const std::vector<std::string>& proxies, int max_retries, c
         Proxy p;
         p.url = url;
         p.id = id_counter++;
-        
-        if (url.find("socks5") != std::string::npos) {
-            p.priority = static_cast<ProxyPriority>(priorities.at("socks5"));
-        } else if (url.find("socks4") != std::string::npos) {
-            p.priority = static_cast<ProxyPriority>(priorities.at("socks4"));
-        } else {
-             // Fallback/Default to finding "http" or using 0 if not found, 
-             // but since we initialize the map in Config with defaults, .at("http") should work.
-             // To be safe against user removing keys from YAML, we should use find() or [] if const issue.
-             // But map is passed const. 
-             if (priorities.count("http")) {
-                 p.priority = static_cast<ProxyPriority>(priorities.at("http"));
-             } else {
-                 p.priority = ProxyPriority::HTTP; 
-             }
-        }
-        
+        p.priority = determine_priority(url, priorities);
         proxies_.push_back(p);
     }
+}
+
+ProxyPriority ProxyPool::determine_priority(const std::string& url, const std::map<std::string, int>& priorities) const {
+    if (url.find("socks5") != std::string::npos) {
+        return static_cast<ProxyPriority>(priorities.at("socks5"));
+    }
+    if (url.find("socks4") != std::string::npos) {
+        return static_cast<ProxyPriority>(priorities.at("socks4"));
+    }
+    auto it = priorities.find("http");
+    return (it != priorities.end()) ? static_cast<ProxyPriority>(it->second) : ProxyPriority::HTTP;
 }
 
 std::optional<Proxy> ProxyPool::get_proxy() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (proxies_.empty()) return std::nullopt;
     
-    // 1. Find the highest priority present in the pool
     ProxyPriority highest_p = ProxyPriority::HTTP;
     for (const auto& p : proxies_) {
         if (p.priority > highest_p) highest_p = p.priority;
     }
 
-    // 2. Find the lowest failure count within that highest priority
-    int min_failures = 1000000;
+    int min_failures = std::numeric_limits<int>::max();
     for (const auto& p : proxies_) {
         if (p.priority == highest_p && p.failure_count < min_failures) {
             min_failures = p.failure_count;
         }
     }
 
-    // 3. Filter candidates that match highest_p AND min_failures
     std::vector<size_t> candidates;
     for (size_t i = 0; i < proxies_.size(); ++i) {
         if (proxies_[i].priority == highest_p && proxies_[i].failure_count == min_failures) {
@@ -59,13 +53,8 @@ std::optional<Proxy> ProxyPool::get_proxy() {
 
     if (candidates.empty()) return std::nullopt;
 
-    // 4. Apply Round-Robin within candidates
-    size_t last_idx = 0;
-    if (last_idx_map_.count(highest_p)) {
-        last_idx = last_idx_map_[highest_p];
-    }
-
-    size_t selected_cand_idx = 0; // Default to first candidate
+    size_t last_idx = last_idx_map_.count(highest_p) ? last_idx_map_[highest_p] : 0;
+    size_t selected_cand_idx = 0;
     for (size_t i = 0; i < candidates.size(); ++i) {
         if (candidates[i] > last_idx) {
             selected_cand_idx = i;
@@ -82,35 +71,26 @@ std::optional<Proxy> ProxyPool::get_proxy() {
 void ProxyPool::report(Proxy p, bool success) {
     std::lock_guard<std::mutex> lock(mutex_);
     
-    for (auto& stored_proxy : proxies_) {
-        if (stored_proxy.url == p.url) { // Match by URL (assuming unique URLs)
-            if (success) {
-                stored_proxy.failure_count = 0;
+    auto it = std::find_if(proxies_.begin(), proxies_.end(), [&](const Proxy& sp) {
+        return sp.url == p.url;
+    });
+
+    if (it != proxies_.end()) {
+        if (success) {
+            it->failure_count = 0;
+        } else {
+            it->failure_count++;
+            if (it->failure_count <= max_retries_) {
+                Logger::warn("Proxy failed (" + std::to_string(it->failure_count) + "/" + std::to_string(max_retries_) + "): " + it->url);
             } else {
-                stored_proxy.failure_count++;
-                if (stored_proxy.failure_count <= max_retries_) {
-                    Logger::warn("Proxy failed (" + std::to_string(stored_proxy.failure_count) + "/" + std::to_string(max_retries_) + "): " + stored_proxy.url);
-                } else {
-                    Logger::error("Proxy removed (Max Retries Exceeded): " + stored_proxy.url);
-                     // Remove from vector
-                     // Note: Handled by removing from vector, but iterating + erasing is tricky.
-                     // Easier: Swap with back and pop_back
-                     // We need to find the iterator.
-                }
+                Logger::error("Proxy removed (Max Retries Exceeded): " + it->url);
             }
-            break;
         }
     }
 
-    // Cleanup Loop for max retries
-    // We do this separately or carefully inside
-    for (auto it = proxies_.begin(); it != proxies_.end(); ) {
-        if (it->failure_count > max_retries_) {
-             it = proxies_.erase(it);
-        } else {
-             ++it;
-        }
-    }
+    proxies_.erase(std::remove_if(proxies_.begin(), proxies_.end(), [&](const Proxy& sp) {
+        return sp.failure_count > max_retries_;
+    }), proxies_.end());
 }
 
 bool ProxyPool::empty() const {
@@ -119,3 +99,5 @@ bool ProxyPool::empty() const {
 }
 
 }
+
+

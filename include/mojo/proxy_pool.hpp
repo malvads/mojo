@@ -41,6 +41,7 @@ public:
     bool empty() const;
 
 private:
+    ProxyPriority determine_priority(const std::string& url, const std::map<std::string, int>& priorities) const;
     std::vector<Proxy> proxies_;
     mutable std::mutex mutex_;
     int max_retries_;
