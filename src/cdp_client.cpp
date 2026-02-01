@@ -4,22 +4,23 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <deque>
 
 namespace Mojo {
 
 struct CDPClient::Context {
     struct lws_context *lws_ctx = nullptr;
     struct lws *wsi = nullptr;
-    std::string response_data;
-    bool message_received = false;
+    
+    std::deque<std::string> message_queue;
+    std::string partial_data;
     bool connected = false;
+    
     int current_id = 1;
     std::string tab_id;
 
     std::string pending_message;
     bool write_pending = false;
-
-    std::string partial_data;
 };
 
 static size_t write_callback(void *contents, size_t size, size_t nmemb, void *userp) {
@@ -63,7 +64,7 @@ std::string CDPClient::get_web_socket_url() {
         ctx_->tab_id = j["id"];
         return j["webSocketDebuggerUrl"];
     } catch (...) {
-        Logger::error("CDP: Failed to create tab. Check Chromium port 9222.");
+        Logger::error("CDP: Failed to create tab. Check Chromium port 9222. Response: " + readBuffer);
         return "";
     }
 }
@@ -79,9 +80,8 @@ static int callback_cdp(struct lws *wsi, enum lws_callback_reasons reason, void 
         case LWS_CALLBACK_CLIENT_RECEIVE:
             ctx->partial_data.append((char*)in, len);
             if (lws_is_final_fragment(wsi)) {
-                ctx->response_data = std::move(ctx->partial_data);
-                ctx->partial_data.clear();
-                ctx->message_received = true;
+                ctx->message_queue.push_back(std::move(ctx->partial_data));
+                ctx->partial_data.clear(); 
             }
             break;
         case LWS_CALLBACK_CLIENT_WRITEABLE:
@@ -111,7 +111,7 @@ static struct lws_protocols protocols[] = {
 
 constexpr int kDefaultTimeout = 10;
 constexpr int kConnectTimeout = 5;
-constexpr int kNavigationWait = 3; 
+constexpr int kPageLoadTimeout = 10;
 
 bool CDPClient::connect() {
     std::string ws_url = get_web_socket_url();
@@ -158,6 +158,13 @@ bool CDPClient::connect() {
 bool CDPClient::navigate(const std::string& url) {
     if (!ctx_->connected) return false;
 
+    int enable_id = ctx_->current_id++;
+    nlohmann::json enable_cmd = {
+        {"id", enable_id},
+        {"method", "Page.enable"}
+    };
+    send_message(enable_cmd);
+
     int nav_id = ctx_->current_id++;
     nlohmann::json nav = {
         {"id", nav_id},
@@ -166,20 +173,34 @@ bool CDPClient::navigate(const std::string& url) {
     };
     send_message(nav);
 
+    bool load_event_fired = false;
     auto start_nav = std::chrono::steady_clock::now();
-    while (std::chrono::steady_clock::now() - start_nav < std::chrono::seconds(kDefaultTimeout)) {
-        lws_service(ctx_->lws_ctx, 100);
-        if (ctx_->message_received) {
-            ctx_->message_received = false;
+    
+    while (std::chrono::steady_clock::now() - start_nav < std::chrono::seconds(kPageLoadTimeout)) {
+        lws_service(ctx_->lws_ctx, 50);
+
+        while (!ctx_->message_queue.empty()) {
+            std::string msg = ctx_->message_queue.front();
+            ctx_->message_queue.pop_front();
+
             try {
-                auto res = nlohmann::json::parse(ctx_->response_data);
-                if (res.contains("id") && res["id"] == nav_id) break;
+                auto j = nlohmann::json::parse(msg);
+                if (j.value("method", "") == "Page.loadEventFired") {
+                    load_event_fired = true;
+                }
+                
+                if (j.value("id", -1) == nav_id && j.contains("error")) {
+                    Logger::error("CDP: Navigation failed: " + j["error"].dump());
+                    return false;
+                }
             } catch (...) {}
         }
+
+        if (load_event_fired) return true;
     }
     
-    std::this_thread::sleep_for(std::chrono::seconds(kNavigationWait));
-    return true;
+    Logger::warn("CDP: Page load timed out: " + url);
+    return false;
 }
 
 std::string CDPClient::evaluate(const std::string& expression) {
@@ -195,16 +216,20 @@ std::string CDPClient::evaluate(const std::string& expression) {
 
     auto start_eval = std::chrono::steady_clock::now();
     while (std::chrono::steady_clock::now() - start_eval < std::chrono::seconds(kDefaultTimeout)) {
-        lws_service(ctx_->lws_ctx, 100);
-        if (ctx_->message_received) {
-            ctx_->message_received = false;
+        lws_service(ctx_->lws_ctx, 50);
+        
+        while (!ctx_->message_queue.empty()) {
+            std::string msg = ctx_->message_queue.front();
+            ctx_->message_queue.pop_front();
+
             try {
-                auto res = nlohmann::json::parse(ctx_->response_data);
-                if (res.contains("id") && res["id"] == eval_id) {
-                    if (res.contains("result") && res["result"].contains("result") && res["result"]["result"].contains("value")) {
-                        return res["result"]["result"]["value"];
-                    }
+                auto j = nlohmann::json::parse(msg);
+                if (j.value("id", -1) != eval_id) continue;
+                
+                if (j.contains("result") && j["result"].contains("result") && j["result"]["result"].contains("value")) {
+                    return j["result"]["result"]["value"];
                 }
+                return ""; 
             } catch (...) {}
         }
     }
