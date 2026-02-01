@@ -41,6 +41,7 @@ private:
 
     void worker_loop();
     void save_markdown(const std::string& url, const std::string& content);
+    void save_file(const std::string& url, const std::string& content, const std::string& extension);
     void add_url(std::string url, int depth);
 };
 
