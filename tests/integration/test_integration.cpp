@@ -1,8 +1,8 @@
+#include <filesystem>
+#include <fstream>
 #include <gtest/gtest.h>
 #include <httplib.h>
 #include <thread>
-#include <filesystem>
-#include <fstream>
 #include "crawler/crawler.hpp"
 #include "logger/logger.hpp"
 
@@ -10,26 +10,28 @@ namespace fs = std::filesystem;
 
 class TestServer {
 public:
-    TestServer() {}
-    
-    void set_route(const std::string& path, const std::string& content, const std::string& type = "text/html") {
+    TestServer() {
+    }
+
+    void set_route(const std::string& path,
+                   const std::string& content,
+                   const std::string& type = "text/html") {
         server_.Get(path, [content, type](const httplib::Request&, httplib::Response& res) {
             res.set_content(content, type.c_str());
         });
     }
 
     void start(int port, const std::string& host = "127.0.0.1") {
-        port_ = port;
-        host_ = host;
-        thread_ = std::thread([this, host, port]() {
-            server_.listen(host.c_str(), port);
-        });
+        port_   = port;
+        host_   = host;
+        thread_ = std::thread([this, host, port]() { server_.listen(host.c_str(), port); });
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     void stop() {
         server_.stop();
-        if (thread_.joinable()) thread_.join();
+        if (thread_.joinable())
+            thread_.join();
     }
 
     std::string url() const {
@@ -38,21 +40,23 @@ public:
 
 private:
     httplib::Server server_;
-    std::thread thread_;
-    int port_ = 0;
-    std::string host_ = "127.0.0.1";
+    std::thread     thread_;
+    int             port_ = 0;
+    std::string     host_ = "127.0.0.1";
 };
 
 class IntegrationTest : public ::testing::Test {
 protected:
     void SetUp() override {
         Mojo::Core::Logger::set_level(Mojo::Core::LOG_ERROR);
-        if (fs::exists("test_output")) fs::remove_all("test_output");
+        if (fs::exists("test_output"))
+            fs::remove_all("test_output");
         fs::create_directory("test_output");
     }
 
     void TearDown() override {
-        if (fs::exists("test_output")) fs::remove_all("test_output");
+        if (fs::exists("test_output"))
+            fs::remove_all("test_output");
     }
 };
 
@@ -64,9 +68,9 @@ TEST_F(IntegrationTest, BasicCrawlDiscovery) {
     server.start(8081);
 
     Mojo::Engine::CrawlerConfig config;
-    config.max_depth = 2;
-    config.threads = 1;
-    config.output_dir = "test_output";
+    config.max_depth      = 2;
+    config.threads        = 1;
+    config.output_dir     = "test_output";
     config.tree_structure = true;
 
     Mojo::Engine::Crawler crawler(config);
@@ -76,20 +80,22 @@ TEST_F(IntegrationTest, BasicCrawlDiscovery) {
     EXPECT_TRUE(fs::exists("test_output/127.0.0.1_8081/index.md"));
     EXPECT_TRUE(fs::exists("test_output/127.0.0.1_8081/a.md"));
     EXPECT_TRUE(fs::exists("test_output/127.0.0.1_8081/b.md"));
-    
+
     server.stop();
 }
 
 TEST_F(IntegrationTest, ImageFiltering) {
     TestServer server;
-    server.set_route("/", "<html><body><img src='/logo.png'><a href='/logo.png'>Link to Image</a></body></html>");
+    server.set_route(
+        "/",
+        "<html><body><img src='/logo.png'><a href='/logo.png'>Link to Image</a></body></html>");
     server.set_route("/logo.png", "FAKE_IMAGE_DATA", "image/png");
     server.start(8082);
 
     Mojo::Engine::CrawlerConfig config;
-    config.max_depth = 1;
-    config.threads = 1;
-    config.output_dir = "test_output";
+    config.max_depth      = 1;
+    config.threads        = 1;
+    config.output_dir     = "test_output";
     config.tree_structure = true;
 
     Mojo::Engine::Crawler crawler(config);
@@ -98,13 +104,14 @@ TEST_F(IntegrationTest, ImageFiltering) {
     EXPECT_TRUE(fs::exists("test_output/127.0.0.1_8082/index.md"));
     EXPECT_FALSE(fs::exists("test_output/127.0.0.1_8082/logo.png"));
     EXPECT_FALSE(fs::exists("test_output/127.0.0.1_8082/logo.md"));
-    
+
     server.stop();
 }
 
 TEST_F(IntegrationTest, DomainRestriction) {
     TestServer server1;
-    server1.set_route("/", "<html><body><a href='http://localhost:8084/ext'>External</a></body></html>");
+    server1.set_route("/",
+                      "<html><body><a href='http://localhost:8084/ext'>External</a></body></html>");
     server1.start(8083, "127.0.0.1");
 
     TestServer server2;
@@ -112,9 +119,9 @@ TEST_F(IntegrationTest, DomainRestriction) {
     server2.start(8084, "localhost");
 
     Mojo::Engine::CrawlerConfig config;
-    config.max_depth = 1;
-    config.threads = 1;
-    config.output_dir = "test_output";
+    config.max_depth      = 1;
+    config.threads        = 1;
+    config.output_dir     = "test_output";
     config.tree_structure = true;
 
     Mojo::Engine::Crawler crawler(config);

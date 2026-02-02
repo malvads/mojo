@@ -6,6 +6,6 @@
 
 #include <string>
 
-[[nodiscard]] std::string formatMarkdownTable(const std::string &inputTable);
+[[nodiscard]] std::string formatMarkdownTable(const std::string& inputTable);
 
-#endif // TABLE_H
+#endif  // TABLE_H

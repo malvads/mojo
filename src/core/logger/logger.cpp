@@ -9,12 +9,12 @@ int Logger::level_ = LogLevel::LOG_ALL;
 std::mutex Logger::mutex_;
 
 namespace {
-    const std::string RESET   = "\033[0m";
-    const std::string RED     = "\033[31m";
-    const std::string GREEN   = "\033[32m";
-    const std::string YELLOW  = "\033[33m";
-    const std::string BLUE    = "\033[34m";
-}
+const std::string RESET  = "\033[0m";
+const std::string RED    = "\033[31m";
+const std::string GREEN  = "\033[32m";
+const std::string YELLOW = "\033[33m";
+const std::string BLUE   = "\033[34m";
+}  // namespace
 
 void Logger::set_level(int level) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -49,5 +49,5 @@ void Logger::error(const std::string& message) {
     }
 }
 
-}
-}
+}  // namespace Core
+}  // namespace Mojo

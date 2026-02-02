@@ -1,6 +1,6 @@
 #pragma once
-#include <string>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace Mojo {
@@ -15,13 +15,14 @@ public:
     };
 
     static std::string find_browser();
-    static bool launch(const std::string& path, int port, bool headless, const std::string& proxy_url = "");
+    static bool
+    launch(const std::string& path, int port, bool headless, const std::string& proxy_url = "");
     static void cleanup();
 
 private:
     static std::vector<std::string> get_search_paths();
 };
 
-}
-}
-}
+}  // namespace Launcher
+}  // namespace Browser
+}  // namespace Mojo

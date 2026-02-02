@@ -1,25 +1,25 @@
 #pragma once
-#include <string>
-#include <map>
 #include <chrono>
+#include <map>
+#include <string>
 #include <vector>
 
 namespace Mojo {
 namespace Core {
 
 struct Constants {
-    static constexpr int DEFAULT_THREADS = 4;
-    static constexpr int DEFAULT_DEPTH = 2; // Changed from 0 to 2
+    static constexpr int         DEFAULT_THREADS    = 4;
+    static constexpr int         DEFAULT_DEPTH      = 2;  // Changed from 0 to 2
     static constexpr const char* DEFAULT_OUTPUT_DIR = "output";
-    static constexpr const char* VERSION = "0.1.0";
-    
-    static constexpr int MAX_RETRIES = 3;
-    static constexpr int REQUEST_TIMEOUT_SECONDS = 3;
-    static constexpr const char* USER_AGENT = "Mojo/1.0";
+    static constexpr const char* VERSION            = "0.1.0";
 
-    static constexpr size_t DEFAULT_BLOOM_FILTER_SIZE = 1000000;
-    static constexpr int DEFAULT_BLOOM_FILTER_HASHES = 7;
-    static constexpr int DEFAULT_PROXY_RETRIES = 3;
+    static constexpr int         MAX_RETRIES             = 3;
+    static constexpr int         REQUEST_TIMEOUT_SECONDS = 3;
+    static constexpr const char* USER_AGENT              = "Mojo/1.0";
+
+    static constexpr size_t DEFAULT_BLOOM_FILTER_SIZE   = 1000000;
+    static constexpr int    DEFAULT_BLOOM_FILTER_HASHES = 7;
+    static constexpr int    DEFAULT_PROXY_RETRIES       = 3;
 };
 
 inline const std::map<std::string, std::string>& get_mime_map() {
@@ -43,35 +43,45 @@ inline const std::map<std::string, std::string>& get_mime_map() {
         {"image/gif", ".gif"},
         {"image/webp", ".webp"},
         {"image/svg+xml", ".svg"},
-        {"image/x-icon", ".ico"}
-    };
+        {"image/x-icon", ".ico"}};
     return map;
 }
 
 inline const std::vector<std::string>& get_image_extensions() {
     static const std::vector<std::string> extensions = {
-        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico", ".tiff", ".avif"
-    };
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico", ".tiff", ".avif"};
     return extensions;
 }
 
 inline const std::vector<std::string>& get_file_extensions() {
-    static const std::vector<std::string> extensions = {
-        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", 
-        ".csv", ".zip", ".tar", ".gz", ".json", ".xml"
-    };
+    static const std::vector<std::string> extensions = {".pdf",
+                                                        ".doc",
+                                                        ".docx",
+                                                        ".xls",
+                                                        ".xlsx",
+                                                        ".ppt",
+                                                        ".pptx",
+                                                        ".csv",
+                                                        ".zip",
+                                                        ".tar",
+                                                        ".gz",
+                                                        ".json",
+                                                        ".xml"};
     return extensions;
 }
 
-inline std::string get_matching_extension(const std::string& url, const std::vector<std::string>& extensions) {
-    if (url.empty()) return "";
-    
+inline std::string get_matching_extension(const std::string&              url,
+                                          const std::vector<std::string>& extensions) {
+    if (url.empty())
+        return "";
+
     std::string url_lower = url;
-    for (char& c : url_lower) c = std::tolower(c);
-    
+    for (char& c : url_lower)
+        c = std::tolower(c);
+
     for (const auto& ext : extensions) {
-        if (url_lower.size() >= ext.size() && 
-            url_lower.compare(url_lower.size() - ext.size(), ext.size(), ext) == 0) {
+        if (url_lower.size() >= ext.size()
+            && url_lower.compare(url_lower.size() - ext.size(), ext.size(), ext) == 0) {
             return ext;
         }
     }
@@ -84,7 +94,7 @@ inline bool has_extension(const std::string& url, const std::vector<std::string>
 
 inline std::string get_file_extension(const std::string& content_type, const std::string& url) {
     const auto& mime_map = get_mime_map();
-    
+
     for (const auto& [mime, extension] : mime_map) {
         if (content_type.find(mime) != std::string::npos) {
             return extension;
@@ -99,7 +109,8 @@ inline std::string get_file_extension(const std::string& content_type, const std
 }
 
 inline bool is_downloadable_mime(const std::string& content_type) {
-    if (content_type.empty()) return false;
+    if (content_type.empty())
+        return false;
     const auto& mime_map = get_mime_map();
     for (const auto& [mime, extension] : mime_map) {
         if (content_type.find(mime) != std::string::npos) {
@@ -110,9 +121,10 @@ inline bool is_downloadable_mime(const std::string& content_type) {
 }
 
 inline std::chrono::milliseconds get_backoff_time(int attempt) {
-    if (attempt <= 0) return std::chrono::milliseconds(0);
+    if (attempt <= 0)
+        return std::chrono::milliseconds(0);
     return std::chrono::milliseconds(1000 * (1 << (attempt - 1)));
 }
 
-} // namespace Constants
-} // namespace Mojo
+}  // namespace Core
+}  // namespace Mojo

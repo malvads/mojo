@@ -21,17 +21,19 @@ TEST(UrlTest, EdgeCases) {
 
 TEST(UrlTest, RealisticUrls) {
     std::vector<std::string> urls = {
-        "https://www.google.com/search?q=gtest+example&oq=gtest+example&aqs=chrome..69i57j0l5.2452j0j7&sourceid=chrome&ie=UTF-8",
+        "https://www.google.com/"
+        "search?q=gtest+example&oq=gtest+example&aqs=chrome..69i57j0l5.2452j0j7&sourceid=chrome&ie="
+        "UTF-8",
         "https://en.wikipedia.org/wiki/Unit_testing",
         "https://github.com/google/googletest/blob/main/docs/primer.md",
         "https://news.ycombinator.com/item?id=25512345",
-        "https://www.amazon.com/dp/B08L5M6449/ref=s9_acsd_al_bw_c2_x_0_i?pf_rd_m=ATVPDKIKX0DER&pf_rd_s=merchandised-search-2",
+        "https://www.amazon.com/dp/B08L5M6449/"
+        "ref=s9_acsd_al_bw_c2_x_0_i?pf_rd_m=ATVPDKIKX0DER&pf_rd_s=merchandised-search-2",
         "https://www.nytimes.com/2021/01/01/world/europe/brexit-uk-eu.html",
         "https://www.reddit.com/r/cpp/comments/kqjxyz/what_is_your_favorite_cpp_testing_framework/",
         "https://stackoverflow.com/questions/41910816/how-to-use-googletest-with-cmake",
         "https://medium.com/@mlowery/how-to-write-a-good-unit-test-d3132641e42c",
-        "https://www.youtube.com/watch?v=1234567890"
-    };
+        "https://www.youtube.com/watch?v=1234567890"};
     for (const auto& url : urls) {
         auto p = Url::parse(url);
         EXPECT_FALSE(p.host.empty());
@@ -48,7 +50,8 @@ TEST(UrlTest, RelativeResolveRFC) {
     // Directory traversal
     EXPECT_EQ(Url::resolve(base, "../d.html"), "https://example.com/a/d.html");
     EXPECT_EQ(Url::resolve(base, "../../d.html"), "https://example.com/d.html");
-    EXPECT_EQ(Url::resolve(base, "../../../d.html"), "https://example.com/d.html"); // Out of bounds
+    EXPECT_EQ(Url::resolve(base, "../../../d.html"),
+              "https://example.com/d.html");  // Out of bounds
 }
 
 TEST(UrlTest, SameDomainStrict) {
@@ -81,7 +84,7 @@ TEST(UrlTest, Internationalization) {
     // Punycode or UTF-8 hosts
     auto p1 = Url::parse("https://xn--dmin-moa.example.com/");
     EXPECT_EQ(p1.host, "xn--dmin-moa.example.com");
-    
+
     // Non-ASCII in path
     auto p2 = Url::parse("https://example.com/目录");
     EXPECT_EQ(p2.path, "/目录");
@@ -104,19 +107,20 @@ TEST(UrlTest, InternationalResolve) {
 TEST(UrlTest, InternationalSameDomain) {
     EXPECT_TRUE(Url::is_same_domain("https://júlio.com", "http://júlio.com/path"));
     EXPECT_TRUE(Url::is_same_domain("https://españa.es", "https://españa.es."));
-    EXPECT_FALSE(Url::is_same_domain("https://júlio.com", "https://julio.com")); // Accented vs Non-accented
+    EXPECT_FALSE(
+        Url::is_same_domain("https://júlio.com", "https://julio.com"));  // Accented vs Non-accented
 }
 
 TEST(UrlTest, InternationalHex) {
     // 'ú' is 0xC3 0xBA in UTF-8
     // "júlio" -> 0x6A 0xC3 0xBA 0x6C 0x69 0x6F
     std::string raw = "https://hola.com/j\xC3\xBAlio";
-    auto p = Url::parse(raw);
+    auto        p   = Url::parse(raw);
     EXPECT_EQ(p.path, "/j\xC3\xBAlio");
-    
+
     // 'ñ' is 0xC3 0xB1
     std::string raw2 = "http://espa\xC3\xB1\x61.es/";
-    auto p2 = Url::parse(raw2);
+    auto        p2   = Url::parse(raw2);
     EXPECT_EQ(p2.host, "espa\xC3\xB1\x61.es");
 }
 
@@ -129,7 +133,7 @@ TEST(UrlTest, PercentEncoding) {
 TEST(UrlTest, IPv6Realistic) {
     auto p1 = Url::parse("http://[2001:db8::1]:8080/");
     EXPECT_EQ(p1.host, "[2001:db8::1]");
-    
+
     auto p2 = Url::parse("http://[fe80::1%eth0]/");
     EXPECT_EQ(p2.host, "[fe80::1%eth0]");
 }
@@ -138,7 +142,7 @@ TEST(UrlTest, ResolutionDeepTraversal) {
     std::string base = "https://a/b/c/d/e";
     EXPECT_EQ(Url::resolve(base, "../../../.."), "https://a/");
     EXPECT_EQ(Url::resolve(base, "./f"), "https://a/b/c/d/f");
-    EXPECT_EQ(Url::resolve(base, "../../../../../../../z"), "https://a/z"); // Above root
+    EXPECT_EQ(Url::resolve(base, "../../../../../../../z"), "https://a/z");  // Above root
 }
 
 TEST(UrlTest, ResolutionQueryFragment) {
@@ -149,7 +153,7 @@ TEST(UrlTest, ResolutionQueryFragment) {
 }
 
 TEST(UrlTest, SameDomainEdge) {
-    EXPECT_TRUE(Url::is_same_domain("http://example.com", "http://example.com.")); // Trailing dot
+    EXPECT_TRUE(Url::is_same_domain("http://example.com", "http://example.com."));  // Trailing dot
     EXPECT_FALSE(Url::is_same_domain("http://example.com", "http://example.org"));
     EXPECT_FALSE(Url::is_same_domain("https://example.com", "https://notexample.com"));
 }
@@ -157,23 +161,23 @@ TEST(UrlTest, SameDomainEdge) {
 TEST(UrlTest, BinaryAndExtreme) {
     // Null byte in path
     std::string null_url = "http://example.com/path\0with\0null"s;
-    auto p = Url::parse(null_url);
-    
+    auto        p        = Url::parse(null_url);
+
     // Extreme length (100KB)
     std::string long_url = "http://example.com/" + std::string(1024 * 100, 'a');
-    auto p2 = Url::parse(long_url);
+    auto        p2       = Url::parse(long_url);
     EXPECT_EQ(p2.host, "example.com");
     EXPECT_EQ(p2.path.length(), 1024 * 100 + 1);
 }
 
 TEST(UrlTest, Pathological) {
     std::string multi = "http://example.com/path??query=1##frag";
-    auto p = Url::parse(multi);
+    auto        p     = Url::parse(multi);
     EXPECT_EQ(p.path, "/path");
     EXPECT_TRUE(p.start_url.find("?query=1##frag") != std::string::npos);
-    
+
     std::string control = "http://example.com/path\r\n\tspace";
-    auto p2 = Url::parse(control);
+    auto        p2      = Url::parse(control);
     EXPECT_EQ(p2.host, "example.com");
 }
 
@@ -185,7 +189,7 @@ TEST(UrlTest, MalformedParse) {
 
 TEST(UrlTest, RecursePercent) {
     std::string recurse = "http://example.com/%252525";
-    auto p = Url::parse(recurse);
+    auto        p       = Url::parse(recurse);
     EXPECT_EQ(p.path, "/%252525");
     auto res = Url::resolve("http://example.com/", "%2525");
     EXPECT_EQ(res, "http://example.com/%2525");

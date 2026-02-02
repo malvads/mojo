@@ -6,12 +6,13 @@ namespace Browser {
 
 class PageImpl : public Page {
 public:
-    PageImpl(std::shared_ptr<Mojo::Browser::CDP::CDPClient> cdp) : cdp_(cdp) {}
-    
+    PageImpl(std::shared_ptr<Mojo::Browser::CDP::CDPClient> cdp) : cdp_(cdp) {
+    }
+
     bool goto_url(const std::string& url) override {
         return cdp_->navigate(url);
     }
-    
+
     std::string content() override {
         return cdp_->evaluate("document.documentElement.outerHTML");
     }
@@ -28,8 +29,8 @@ private:
     std::shared_ptr<Mojo::Browser::CDP::CDPClient> cdp_;
 };
 
-Browser::Browser(const std::string& host, int port) 
-    : host_(host), port_(port) {}
+Browser::Browser(const std::string& host, int port) : host_(host), port_(port) {
+}
 
 std::shared_ptr<Browser> Browser::connect(const std::string& host, int port) {
     return std::shared_ptr<Browser>(new Browser(host, port));
@@ -48,8 +49,8 @@ void Browser::close() {
 }
 
 bool Browser::is_connected() const {
-    return true; // Simple stub
+    return true;  // Simple stub
 }
 
-}
-}
+}  // namespace Browser
+}  // namespace Mojo

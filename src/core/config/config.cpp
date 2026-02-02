@@ -1,8 +1,8 @@
-#include <iostream>
-#include <fstream>
-#include <yaml-cpp/yaml.h>
-#include <CLI/CLI.hpp>
 #include "config/config.hpp"
+#include <CLI/CLI.hpp>
+#include <fstream>
+#include <iostream>
+#include <yaml-cpp/yaml.h>
 
 namespace Mojo {
 namespace Core {
@@ -10,29 +10,46 @@ namespace Core {
 void load_yaml(Config& config, const std::string& path) {
     try {
         YAML::Node yaml = YAML::LoadFile(path);
-        if (yaml["depth"]) config.depth = yaml["depth"].as<int>();
-        if (yaml["max_depth"]) config.depth = yaml["max_depth"].as<int>();
-        if (yaml["threads"]) config.threads = yaml["threads"].as<int>();
-        if (yaml["output"]) config.output_dir = yaml["output"].as<std::string>();
-        if (yaml["output_dir"]) config.output_dir = yaml["output_dir"].as<std::string>();
-        if (yaml["render"]) config.render_js = yaml["render"].as<bool>();
-        if (yaml["render_js"]) config.render_js = yaml["render_js"].as<bool>();
-        if (yaml["headless"]) config.headless = yaml["headless"].as<bool>();
-        if (yaml["browser_path"]) config.browser_path = yaml["browser_path"].as<std::string>();
-        if (yaml["proxy_retries"]) config.proxy_retries = yaml["proxy_retries"].as<int>();
-        if (yaml["proxy_bind_ip"]) config.proxy_bind_ip = yaml["proxy_bind_ip"].as<std::string>();
-        if (yaml["proxy_bind_port"]) config.proxy_bind_port = yaml["proxy_bind_port"].as<int>();
-        if (yaml["cdp_port"]) config.cdp_port = yaml["cdp_port"].as<int>();
-        if (yaml["proxy_threads"]) config.proxy_threads = yaml["proxy_threads"].as<int>();
+        if (yaml["depth"])
+            config.depth = yaml["depth"].as<int>();
+        if (yaml["max_depth"])
+            config.depth = yaml["max_depth"].as<int>();
+        if (yaml["threads"])
+            config.threads = yaml["threads"].as<int>();
+        if (yaml["output"])
+            config.output_dir = yaml["output"].as<std::string>();
+        if (yaml["output_dir"])
+            config.output_dir = yaml["output_dir"].as<std::string>();
+        if (yaml["render"])
+            config.render_js = yaml["render"].as<bool>();
+        if (yaml["render_js"])
+            config.render_js = yaml["render_js"].as<bool>();
+        if (yaml["headless"])
+            config.headless = yaml["headless"].as<bool>();
+        if (yaml["browser_path"])
+            config.browser_path = yaml["browser_path"].as<std::string>();
+        if (yaml["proxy_retries"])
+            config.proxy_retries = yaml["proxy_retries"].as<int>();
+        if (yaml["proxy_bind_ip"])
+            config.proxy_bind_ip = yaml["proxy_bind_ip"].as<std::string>();
+        if (yaml["proxy_bind_port"])
+            config.proxy_bind_port = yaml["proxy_bind_port"].as<int>();
+        if (yaml["cdp_port"])
+            config.cdp_port = yaml["cdp_port"].as<int>();
+        if (yaml["proxy_threads"])
+            config.proxy_threads = yaml["proxy_threads"].as<int>();
 
         if (yaml["proxies"] && yaml["proxies"].IsSequence()) {
-            for (const auto& node : yaml["proxies"]) config.proxies.push_back(node.as<std::string>());
+            for (const auto& node : yaml["proxies"])
+                config.proxies.push_back(node.as<std::string>());
         }
 
         if (yaml["proxy_list"]) {
             std::ifstream file(yaml["proxy_list"].as<std::string>());
-            std::string line;
-            while (std::getline(file, line)) if (!line.empty()) config.proxies.push_back(line);
+            std::string   line;
+            while (std::getline(file, line))
+                if (!line.empty())
+                    config.proxies.push_back(line);
         }
 
         YAML::Node prio = yaml["proxy_priorities"] ? yaml["proxy_priorities"] : yaml["priorities"];
@@ -47,7 +64,7 @@ void load_yaml(Config& config, const std::string& path) {
 }
 
 Config Config::parse(int argc, char* argv[]) {
-    Config config;
+    Config   config;
     CLI::App app{"Mojo - Extremely Fast Web Crawler for AI & LLM Data Ingestion"};
 
     std::string proxy_list_path;
@@ -65,10 +82,22 @@ Config Config::parse(int argc, char* argv[]) {
     app.add_option("--cdp-port", config.cdp_port, "Chrome DevTools Protocol port");
     app.add_option("--browser", config.browser_path, "Path to Chromium/Chrome executable");
     app.add_option("--config", config.config_path, "Path to YAML configuration file");
-    
-    app.add_flag("--flat",  [&](size_t count){ if (count > 0) config.tree_structure = false; }, "Use flat output structure");
+
+    app.add_flag(
+        "--flat",
+        [&](size_t count) {
+            if (count > 0)
+                config.tree_structure = false;
+        },
+        "Use flat output structure");
     app.add_flag("--render", config.render_js, "Enable JavaScript rendering");
-    app.add_flag("--no-headless", [&](size_t count){ if (count > 0) config.headless = false; }, "Run browser in windowed mode (debug only)");
+    app.add_flag(
+        "--no-headless",
+        [&](size_t count) {
+            if (count > 0)
+                config.headless = false;
+        },
+        "Run browser in windowed mode (debug only)");
 
     app.add_option("urls", config.urls, "URLs to crawl");
 
@@ -80,7 +109,7 @@ Config Config::parse(int argc, char* argv[]) {
 
     if (!config.config_path.empty()) {
         load_yaml(config, config.config_path);
-        
+
         try {
             app.parse(argc, argv);
         } catch (const CLI::ParseError& e) {
@@ -88,33 +117,36 @@ Config Config::parse(int argc, char* argv[]) {
         }
     }
 
-    if (!single_proxy.empty()) config.proxies.push_back(single_proxy);
+    if (!single_proxy.empty())
+        config.proxies.push_back(single_proxy);
     if (!proxy_list_path.empty()) {
         std::ifstream file(proxy_list_path);
-        std::string line;
+        std::string   line;
         while (std::getline(file, line)) {
             // Trim whitespace
             size_t f = line.find_first_not_of(" \t\r\n");
-            if (f == std::string::npos) continue;
+            if (f == std::string::npos)
+                continue;
             line = line.substr(f);
-            
+
             // Strip comments
             size_t hash = line.find('#');
             if (hash != std::string::npos) {
                 line = line.substr(0, hash);
                 // re-trim
                 size_t last = line.find_last_not_of(" \t\r\n");
-                if (last == std::string::npos) continue;
+                if (last == std::string::npos)
+                    continue;
                 line = line.substr(0, last + 1);
             }
-            
-            if (!line.empty()) config.proxies.push_back(line);
+
+            if (!line.empty())
+                config.proxies.push_back(line);
         }
     }
 
     return config;
 }
 
-}
-}
-
+}  // namespace Core
+}  // namespace Mojo

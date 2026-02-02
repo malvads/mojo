@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
-#include "../../src/utils/text/converter.hpp"
 #include <set>
+#include "../../src/utils/text/converter.hpp"
 
 using namespace Mojo::Utils::Text;
 
 TEST(TextTest, LinkExtractionRealistic) {
-    std::string html = R"html(
+    std::string html  = R"html(
         <div>
             <a href="https://example.com/1">Link 1</a>
             <p>Some text with <a href="/internal">internal link</a></p>
@@ -23,8 +23,8 @@ TEST(TextTest, LinkExtractionRealistic) {
             </footer>
         </div>
     )html";
-    auto links = Converter::extract_links(html);
-    
+    auto        links = Converter::extract_links(html);
+
     std::set<std::string> link_set(links.begin(), links.end());
     EXPECT_TRUE(link_set.count("https://example.com/1"));
     EXPECT_TRUE(link_set.count("/internal"));
@@ -32,12 +32,12 @@ TEST(TextTest, LinkExtractionRealistic) {
     EXPECT_TRUE(link_set.count("mailto:test@example.com"));
     EXPECT_TRUE(link_set.count("https://extern.com"));
     EXPECT_TRUE(link_set.count("#top"));
-    EXPECT_TRUE(link_set.count("")); // Empty href
+    EXPECT_TRUE(link_set.count(""));  // Empty href
 }
 
 TEST(TextTest, CaseInsensitiveTags) {
-    std::string html = "<A HREF='HTTP://UPPER.COM'>Upper</A>";
-    auto links = Converter::extract_links(html);
+    std::string html  = "<A HREF='HTTP://UPPER.COM'>Upper</A>";
+    auto        links = Converter::extract_links(html);
     ASSERT_EQ(links.size(), 1);
     EXPECT_EQ(links[0], "HTTP://UPPER.COM");
 }
@@ -57,7 +57,7 @@ TEST(TextTest, MarkdownConversionComplex) {
         <pre><code>code block</code></pre>
         <blockquote>Quote here</blockquote>
     )html";
-    std::string md = Converter::to_markdown(html);
+    std::string md   = Converter::to_markdown(html);
     EXPECT_FALSE(md.empty());
     EXPECT_NE(md.find("# Main Title"), std::string::npos);
     EXPECT_NE(md.find("**bold**"), std::string::npos);
@@ -65,37 +65,38 @@ TEST(TextTest, MarkdownConversionComplex) {
 }
 
 TEST(TextTest, MalformedHtml) {
-    std::string html = "<div><a>Unclosed tag<p>nested";
-    auto links = Converter::extract_links(html);
+    std::string html  = "<div><a>Unclosed tag<p>nested";
+    auto        links = Converter::extract_links(html);
     // Gumbo is robust, should still find the <a> if it has href
-    
+
     std::string md = Converter::to_markdown("<<<<>>>>");
-    EXPECT_FALSE(md.empty()); 
+    EXPECT_FALSE(md.empty());
 }
 
 TEST(TextTest, UnicodeHandling) {
     std::string html = "<h1>你好</h1><p>Café</p>";
-    std::string md = Converter::to_markdown(html);
+    std::string md   = Converter::to_markdown(html);
     EXPECT_NE(md.find("你好"), std::string::npos);
     EXPECT_NE(md.find("Café"), std::string::npos);
 }
 
 TEST(TextTest, LargeHtml) {
     std::string html = "<html><body>";
-    for(int i=0; i<1000; ++i) {
-        html += "<p>Paragraph " + std::to_string(i) + " with <a href='/p" + std::to_string(i) + "'>link</a></p>";
+    for (int i = 0; i < 1000; ++i) {
+        html += "<p>Paragraph " + std::to_string(i) + " with <a href='/p" + std::to_string(i)
+                + "'>link</a></p>";
     }
     html += "</body></html>";
-    
+
     auto links = Converter::extract_links(html);
     EXPECT_EQ(links.size(), 1000);
-    
+
     std::string md = Converter::to_markdown(html);
     EXPECT_GT(md.size(), 10000);
 }
 
 TEST(TextTest, LinkExtractionEdge) {
-    std::string html = R"html(
+    std::string           html  = R"html(
         <!-- <a href="http://hidden.com">Hidden</a> -->
         <a href="http://visible.com">Visible</a>
         <meta http-equiv="refresh" content="5;url=http://meta.com">
@@ -103,10 +104,10 @@ TEST(TextTest, LinkExtractionEdge) {
         <base href="http://base.com/">
         <area shape="rect" coords="0,0,82,126" href="http://area.com">
     )html";
-    auto links = Converter::extract_links(html);
+    auto                  links = Converter::extract_links(html);
     std::set<std::string> link_set(links.begin(), links.end());
-    
-    EXPECT_FALSE(link_set.count("http://hidden.com")); // In comment
+
+    EXPECT_FALSE(link_set.count("http://hidden.com"));  // In comment
     EXPECT_TRUE(link_set.count("http://visible.com"));
 }
 
@@ -118,28 +119,30 @@ TEST(TextTest, MarkdownNesting) {
             </li>
         </ul>
     )html";
-    std::string md = Converter::to_markdown(html);
+    std::string md   = Converter::to_markdown(html);
     EXPECT_NE(md.find("Nested Table"), std::string::npos);
 }
 
 TEST(TextTest, UnicodeInLinks) {
-    std::string html = "<a href='https://example.com/🚀'>Rocket</a>";
-    auto links = Converter::extract_links(html);
+    std::string html  = "<a href='https://example.com/🚀'>Rocket</a>";
+    auto        links = Converter::extract_links(html);
     ASSERT_EQ(links.size(), 1);
     EXPECT_EQ(links[0], "https://example.com/🚀");
 }
 
 TEST(TextTest, NestingStress) {
     std::string html;
-    for(int i=0; i<1000; ++i) html += "<div>";
+    for (int i = 0; i < 1000; ++i)
+        html += "<div>";
     html += "<a href='http://leaf.com'>Leaf</a>";
-    for(int i=0; i<1000; ++i) html += "</div>";
-    
+    for (int i = 0; i < 1000; ++i)
+        html += "</div>";
+
     // Test link extraction on deep nesting
     auto links = Converter::extract_links(html);
     ASSERT_EQ(links.size(), 1);
     EXPECT_EQ(links[0], "http://leaf.com");
-    
+
     // Test markdown conversion on deep nesting
     std::string md = Converter::to_markdown(html);
     EXPECT_NE(md.find("Leaf"), std::string::npos);
@@ -147,7 +150,8 @@ TEST(TextTest, NestingStress) {
 
 TEST(TextTest, BrokenHtmlLinks) {
     // Malformed tags
-    std::string html = "<a href='http://a.com' invalid-attr='val' >OK</a><a href=\"http://b.com\"\" >Broken</a>";
+    std::string html =
+        "<a href='http://a.com' invalid-attr='val' >OK</a><a href=\"http://b.com\"\" >Broken</a>";
     auto links = Converter::extract_links(html);
     // Should ideally find at least the first one
     EXPECT_GE(links.size(), 1);
@@ -155,8 +159,8 @@ TEST(TextTest, BrokenHtmlLinks) {
 
 TEST(TextTest, LargeAttributes) {
     std::string large_href = "https://example.com/" + std::string(10000, 'a');
-    std::string html = "<a href='" + large_href + "'>Large</a>";
-    auto links = Converter::extract_links(html);
+    std::string html       = "<a href='" + large_href + "'>Large</a>";
+    auto        links      = Converter::extract_links(html);
     ASSERT_EQ(links.size(), 1);
     EXPECT_EQ(links[0], large_href);
 }

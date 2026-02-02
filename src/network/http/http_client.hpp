@@ -7,42 +7,26 @@ namespace Mojo {
 namespace Network {
 namespace Http {
 
-enum class ErrorType {
-    None,
-    Network,
-    Proxy,
-    Timeout,
-    Skipped,
-    Other,
-    Render,
-    Browser
-};
+enum class ErrorType { None, Network, Proxy, Timeout, Skipped, Other, Render, Browser };
 
-enum class HTTPCode {
-    Ok = 200,
-    NetworkError = 0,
-    BrowserError = 599,
-    NotFound = 404
-};
+enum class HTTPCode { Ok = 200, NetworkError = 0, BrowserError = 599, NotFound = 404 };
 
-enum class MaxCode {
-    ClientError = 400
-};
+enum class MaxCode { ClientError = 400 };
 
-} // namespace Http
-} // namespace Network
-} // namespace Mojo
+}  // namespace Http
+}  // namespace Network
+}  // namespace Mojo
 
 namespace Mojo {
 
 struct Response {
-    std::string effective_url;
-    long status_code = 0;
-    std::string content_type;
-    std::string body;
-    std::string error;
-    bool success = false;
-    bool skipped = false;
+    std::string              effective_url;
+    long                     status_code = 0;
+    std::string              content_type;
+    std::string              body;
+    std::string              error;
+    bool                     success    = false;
+    bool                     skipped    = false;
     Network::Http::ErrorType error_type = Network::Http::ErrorType::None;
 };
 
@@ -52,11 +36,11 @@ namespace Http {
 class HttpClient {
 public:
     virtual ~HttpClient() = default;
-    
-    virtual void set_proxy(const std::string& proxy) = 0;
-    virtual Response get(const std::string& url) = 0;
+
+    virtual void     set_proxy(const std::string& proxy) = 0;
+    virtual Response get(const std::string& url)         = 0;
 };
 
-} // namespace Http
-} // namespace Network
-} // namespace Mojo
+}  // namespace Http
+}  // namespace Network
+}  // namespace Mojo

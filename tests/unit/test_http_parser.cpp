@@ -4,7 +4,8 @@
 using namespace Mojo::Utils::Http;
 
 TEST(HttpParserTest, ParseConnectVariations) {
-    auto t1 = Parser::parse_target("CONNECT google.com:443 HTTP/1.1\r\nHost: google.com:443\r\n\r\n");
+    auto t1 =
+        Parser::parse_target("CONNECT google.com:443 HTTP/1.1\r\nHost: google.com:443\r\n\r\n");
     ASSERT_TRUE(t1.has_value());
     EXPECT_EQ(t1->host, "google.com");
     EXPECT_EQ(t1->port, 443);
@@ -12,13 +13,13 @@ TEST(HttpParserTest, ParseConnectVariations) {
     auto t2 = Parser::parse_target("CONNECT example.com HTTP/1.1\r\nHost: example.com\r\n\r\n");
     ASSERT_TRUE(t2.has_value());
     EXPECT_EQ(t2->host, "example.com");
-    EXPECT_EQ(t2->port, 443); // Default for CONNECT
+    EXPECT_EQ(t2->port, 443);  // Default for CONNECT
 }
 
 TEST(HttpParserTest, HeaderSpacing) {
     auto t1 = Parser::parse_target("GET / HTTP/1.1\r\nHost:  spaced.com  \r\n\r\n");
     ASSERT_TRUE(t1.has_value());
-    EXPECT_EQ(t1->host, "spaced.com"); // Should trim
+    EXPECT_EQ(t1->host, "spaced.com");  // Should trim
 
     auto t2 = Parser::parse_target("GET / HTTP/1.1\r\nHost:portless\r\n\r\n");
     ASSERT_TRUE(t2.has_value());
@@ -27,24 +28,26 @@ TEST(HttpParserTest, HeaderSpacing) {
 
 TEST(HttpParserTest, FoldedHeaders) {
     // Folded headers use space/tab on next line. Parser should probably skip or handle.
-    auto t = Parser::parse_target("GET / HTTP/1.1\r\nHost: folded.com\r\n X-Folded: oops\r\n  more\r\n\r\n");
+    auto t = Parser::parse_target(
+        "GET / HTTP/1.1\r\nHost: folded.com\r\n X-Folded: oops\r\n  more\r\n\r\n");
     ASSERT_TRUE(t.has_value());
     EXPECT_EQ(t->host, "folded.com");
 }
 
 TEST(HttpParserTest, PortValidation) {
     auto t1 = Parser::parse_target("GET / HTTP/1.1\r\nHost: example.com:abc\r\n\r\n");
-    EXPECT_FALSE(t1.has_value()); // Invalid port
+    EXPECT_FALSE(t1.has_value());  // Invalid port
 
     auto t2 = Parser::parse_target("GET / HTTP/1.1\r\nHost: example.com:65536\r\n\r\n");
     // Port 65536 is out of range, should handle gracefully
 }
 
 TEST(HttpParserTest, MultiLineMixed) {
-    std::string data = "GET / HTTP/1.1\n"
-                       "User-Agent: test\r\n"
-                       "host: mixed-line.com\n"
-                       "Connection: close\r\n\r\n";
+    std::string data =
+        "GET / HTTP/1.1\n"
+        "User-Agent: test\r\n"
+        "host: mixed-line.com\n"
+        "Connection: close\r\n\r\n";
     auto t = Parser::parse_target(data);
     ASSERT_TRUE(t.has_value());
     EXPECT_EQ(t->host, "mixed-line.com");
@@ -52,7 +55,8 @@ TEST(HttpParserTest, MultiLineMixed) {
 
 TEST(HttpParserTest, AbsoluteUri) {
     // Some proxies send absolute URIs in the GET line
-    auto t = Parser::parse_target("GET http://absolute.com/path HTTP/1.1\r\nHost: ignored.com\r\n\r\n");
+    auto t =
+        Parser::parse_target("GET http://absolute.com/path HTTP/1.1\r\nHost: ignored.com\r\n\r\n");
     // Current parser looks at Host header, but RFC says absolute URI takes precedence.
     // Let's see what it does.
 }
@@ -66,13 +70,14 @@ TEST(HttpParserTest, ParseGetVariations) {
     auto t2 = Parser::parse_target("HEAD /favicon.ico HTTP/1.1\r\nHost: static.cc\r\n\r\n");
     ASSERT_TRUE(t2.has_value());
     EXPECT_EQ(t2->host, "static.cc");
-    EXPECT_EQ(t2->port, 80); // Default for non-CONNECT
+    EXPECT_EQ(t2->port, 80);  // Default for non-CONNECT
 }
 
 TEST(HttpParserTest, MalformedData) {
     EXPECT_FALSE(Parser::parse_target("").has_value());
-    EXPECT_FALSE(Parser::parse_target("GET / HTTP/1.1\r\n").has_value()); // Missing Host
-    EXPECT_FALSE(Parser::parse_target("CONNECT \r\nHost: test.com\r\n\r\n").has_value()); // Missing target in CONNECT
+    EXPECT_FALSE(Parser::parse_target("GET / HTTP/1.1\r\n").has_value());  // Missing Host
+    EXPECT_FALSE(Parser::parse_target("CONNECT \r\nHost: test.com\r\n\r\n")
+                     .has_value());  // Missing target in CONNECT
 }
 
 TEST(HttpParserTest, LargeHeaders) {

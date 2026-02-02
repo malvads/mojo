@@ -1,6 +1,6 @@
 #pragma once
-#include <string>
 #include <mutex>
+#include <string>
 
 namespace Mojo {
 namespace Core {
@@ -23,9 +23,9 @@ public:
     static void error(const std::string& message);
 
 private:
-    static int level_;
+    static int        level_;
     static std::mutex mutex_;
 };
 
-}
-}
+}  // namespace Core
+}  // namespace Mojo

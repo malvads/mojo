@@ -7,7 +7,8 @@ TEST(LauncherTest, FindBrowser) {
     std::string path = BrowserLauncher::find_browser();
 #ifdef __APPLE__
     if (!path.empty()) {
-        EXPECT_TRUE(path.find("Contents/MacOS") != std::string::npos || path.find("/usr/local/bin") != std::string::npos);
+        EXPECT_TRUE(path.find("Contents/MacOS") != std::string::npos
+                    || path.find("/usr/local/bin") != std::string::npos);
     }
 #endif
 }
