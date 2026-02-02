@@ -57,7 +57,12 @@ jobs:
       run: |
         cmake --build build --config Release
 
-    - name: Run Tests
+    - name: Run Unit Tests
       working-directory: build
       run: |
-        ctest -C Release --output-on-failure
+        ctest -C Release -E IntegrationTest --output-on-failure
+
+    - name: Run Integration Tests
+      working-directory: build
+      run: |
+        ctest -C Release -R IntegrationTest --output-on-failure

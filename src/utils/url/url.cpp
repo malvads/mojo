@@ -12,42 +12,74 @@ UrlParsed Url::parse(const std::string& url) {
     UrlParsed parsed;
     parsed.start_url = url;
 
-    std::regex re(R"(^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?)");
-    std::smatch match;
+    if (url.empty()) {
+        parsed.path = "/";
+        return parsed;
+    }
 
-    if (std::regex_match(url, match, re)) {
-        parsed.scheme = match[2];
-        std::string authority = match[4];
-        parsed.path = match[5];
+    std::string_view sv = url;
+    
+    size_t colon = sv.find(':');
+    size_t first_slash = sv.find('/');
+    size_t first_q = sv.find('?');
+    size_t first_h = sv.find('#');
+    bool has_scheme = (colon != std::string_view::npos);
+    if (has_scheme && first_slash != std::string_view::npos && colon > first_slash) has_scheme = false;
+    if (has_scheme && first_q != std::string_view::npos && colon > first_q) has_scheme = false;
+    if (has_scheme && first_h != std::string_view::npos && colon > first_h) has_scheme = false;
+
+    if (has_scheme) {
+        parsed.scheme = std::string(sv.substr(0, colon));
+        sv.remove_prefix(colon + 1);
+    }
+
+    if (sv.size() >= 2 && sv[0] == '/' && sv[1] == '/') {
+        sv.remove_prefix(2);
+        size_t end_auth = sv.find_first_of("/?#");
+        std::string authority = std::string(sv.substr(0, end_auth));
         
+        if (end_auth != std::string_view::npos) {
+            sv.remove_prefix(end_auth);
+        } else {
+            sv = "";
+        }
+
         if (!authority.empty()) {
-            // Split userinfo
             size_t at = authority.find_last_of('@');
             std::string host_port = (at != std::string::npos) ? authority.substr(at + 1) : authority;
             
-            if (host_port[0] == '[') {
+            if (!host_port.empty() && host_port[0] == '[') {
                 size_t end_bracket = host_port.find(']');
                 if (end_bracket != std::string::npos) {
                     parsed.host = host_port.substr(0, end_bracket + 1);
-                    size_t colon = host_port.find(':', end_bracket + 1);
-                    if (colon != std::string::npos) {
-                        parsed.port = host_port.substr(colon + 1);
+                    size_t p_colon = host_port.find(':', end_bracket + 1);
+                    if (p_colon != std::string::npos) {
+                        parsed.port = host_port.substr(p_colon + 1);
                     }
                 } else {
                     parsed.host = host_port;
                 }
             } else {
-                size_t colon = host_port.find_last_of(':');
-                if (colon != std::string::npos) {
-                    parsed.host = host_port.substr(0, colon);
-                    parsed.port = host_port.substr(colon + 1);
+                size_t p_colon = host_port.find_last_of(':');
+                if (p_colon != std::string::npos) {
+                    parsed.host = host_port.substr(0, p_colon);
+                    parsed.port = host_port.substr(p_colon + 1);
                 } else {
                     parsed.host = host_port;
                 }
             }
         }
     }
-    
+
+    size_t q_pos = sv.find('?');
+    size_t h_pos = sv.find('#'); 
+
+    size_t path_end = sv.length();
+    if (q_pos != std::string_view::npos) path_end = std::min(path_end, q_pos);
+    if (h_pos != std::string_view::npos) path_end = std::min(path_end, h_pos);
+
+    parsed.path = std::string(sv.substr(0, path_end));
+
     if (parsed.path.empty()) parsed.path = "/";
     return parsed;
 }
@@ -55,14 +87,12 @@ UrlParsed Url::parse(const std::string& url) {
 std::string Url::resolve(const std::string& base, const std::string& relative) {
     if (relative.empty()) return base;
     
-    // Fragment only
     if (relative[0] == '#') {
         size_t frag = base.find('#');
         if (frag == std::string::npos) return base + relative;
         return base.substr(0, frag) + relative;
     }
 
-    // Query only
     if (relative[0] == '?') {
         size_t q = base.find('?');
         size_t f = base.find('#');
@@ -71,9 +101,7 @@ std::string Url::resolve(const std::string& base, const std::string& relative) {
         else if (f != std::string::npos) res = base.substr(0, f);
         else res = base;
         
-        // Ensure relative fragment doesn't override base fragment if not present in relative
         if (relative.find('#') == std::string::npos && f != std::string::npos && f > (q != std::string::npos ? q : 0)) {
-             // Keep base fragment? Standards vary, but relative ? usually keeps fragment if not provided.
         }
         return res + relative;
     }
@@ -116,7 +144,6 @@ std::string Url::resolve(const std::string& base, const std::string& relative) {
     size_t domain_end = (scheme_end == std::string::npos) ? 0 : result.find('/', scheme_end + 3);
     if (domain_end == std::string::npos) domain_end = result.length();
 
-    // Segment-based normalization (RFC 3986)
     std::string path = result.substr(domain_end);
     std::string query_frag;
     size_t qf = path.find_first_of("?#");
@@ -142,7 +169,6 @@ std::string Url::resolve(const std::string& base, const std::string& relative) {
         normalized_path += segments[i];
         if (i < segments.size() - 1) normalized_path += "/";
     }
-    // If the original path ended in a slash and was not just root, or we ended with . or ..
     if (path.length() > 1 && path.back() == '/' && normalized_path.back() != '/') {
         normalized_path += "/";
     }
