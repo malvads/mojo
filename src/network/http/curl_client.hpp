@@ -29,7 +29,7 @@ private:
         long timeout_seconds = 10;
         bool follow_location = true;
         std::vector<std::string> extra_headers;
-        std::string user_agent = "mojo/crawler";
+        std::string user_agent;
     };
 
     struct RequestContext {

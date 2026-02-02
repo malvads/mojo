@@ -90,6 +90,9 @@ size_t CurlClient::header_callback(char* buffer, size_t size, size_t nitems, voi
 
     if (istarts_with(val, IMAGE_PREFIX)) {
         ctx->is_image = true;
+        if (ctx->detect_image) {
+            return 0; // Abort transfer for images
+        }
     }
 
     return size * nitems;
@@ -154,7 +157,7 @@ Response CurlClient::handle_response(CURLcode res, RequestContext& ctx, long res
         return response;
     }
 
-    if (res != CURLE_OK) {
+    if (res != CURLE_OK && res != CURLE_WRITE_ERROR) {
         response.success = false;
         response.error = curl_easy_strerror(res);
         response.error_type = map_curl_code_to_error_type(res);
@@ -174,6 +177,7 @@ CurlClient::Request CurlClient::create_request(const std::string& url, HttpMetho
     Request req;
     req.method = method;
     req.url = url;
+    req.user_agent = Mojo::Core::Constants::USER_AGENT;
     if (method == HttpMethod::HEAD) {
         req.timeout_seconds = 5L;
     }
