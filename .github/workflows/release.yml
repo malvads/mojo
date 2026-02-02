@@ -9,100 +9,136 @@ permissions:
   contents: write
 
 jobs:
-  release-build:
-    name: Build ${{ matrix.target }}
+  build-macos:
+    name: Build macOS ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-24.04
-            target: linux-x86_64
-            archive_name: mojo-linux-x86_64.tar.gz
-            asset_path: build/mojo
           - os: macos-15
-            target: macos15-arm64
-            archive_name: mojo-macos15-arm64.tar.gz
-            asset_path: build/mojo
-          - os: macos-14
-            target: macos14-arm64
-            archive_name: mojo-macos14-arm64.tar.gz
-            asset_path: build/mojo
+            target: macos-arm
           - os: macos-15-intel
-            target: macos15-intel
-            archive_name: mojo-macos15-intel.tar.gz
-            asset_path: build/mojo
-          - os: windows-2025
-            target: windows-x64
-            archive_name: mojo-windows-x64.zip
-            asset_path: build/Release/mojo.exe
-            triplet: x64-windows
+            target: macos-intel
 
     steps:
     - uses: actions/checkout@v4
+    - name: Get Version
+      id: get_version
+      run: echo "PROJECT_VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_ENV
 
-    # --- Linux Dependencies ---
-    - name: Install Dependencies (Linux)
-      if: runner.os == 'Linux'
+    - name: Install Dependencies
+      run: brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11
+
+    - name: Configure & Build
       run: |
-        sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev libcli11-dev
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+        cmake --build . --config Release
 
-    # --- macOS Dependencies ---
-    - name: Install Dependencies (macOS)
-      if: runner.os == 'macOS'
+    - name: Rename & Upload
       run: |
-        brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11
+        mv build/mojo build/mojo-${{ matrix.target }}
+        
+    - uses: softprops/action-gh-release@v1
+      with:
+        files: build/mojo-${{ matrix.target }}
+        name: Mojo ${{ env.PROJECT_VERSION }}
 
-    # --- Windows Dependencies ---
-    - name: Install Dependencies (Windows)
-      if: runner.os == 'Windows'
+  build-rpm:
+    name: Build Linux (RPM - CentOS Stream 9)
+    runs-on: ubuntu-latest
+    container: quay.io/centos/centos:stream9
+    steps:
+    - name: Install Build Tools
       run: |
-        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 --triplet ${{ matrix.triplet }}
-        vcpkg integrate install
+        dnf -y update
+        dnf -y install git cmake make gcc-c++ wget rpm-build epel-release
+        dnf config-manager --set-enabled crb
+        dnf -y install libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel cli11-devel libcap-devel libuv-devel libev-devel zlib-devel
 
+    - uses: actions/checkout@v4
+    - name: Get Version
+      id: get_version
+      run: echo "PROJECT_VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_ENV
+
+    - name: Configure & Build & Package
+      run: |
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DMOJO_STATIC_BUILD=ON
+        make -j$(nproc)
+        cpack -G RPM
+
+    - name: Upload RPM
+      uses: softprops/action-gh-release@v1
+      with:
+        files: build/*.rpm
+        name: Mojo ${{ env.PROJECT_VERSION }}
+
+  build-debian:
+    name: Build Linux (DEB - Ubuntu 20.04)
+    runs-on: ubuntu-latest
+    container: ubuntu:20.04
+    steps:
+    - name: Install Dependencies
+      run: |
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev build-essential cmake wget git file libcap-dev libuv1-dev libev-dev zlib1g-dev
+        # Install CLI11 from jammy deb (safe header-only)
+        wget http://archive.ubuntu.com/ubuntu/pool/universe/c/cli11/libcli11-dev_2.1.2+ds-1_all.deb
+        dpkg -i libcli11-dev_2.1.2+ds-1_all.deb
+
+    - uses: actions/checkout@v4
+    - name: Get Version
+      id: get_version
+      run: echo "PROJECT_VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_ENV
+
+    - name: Configure & Build & Package
+      run: |
+        mkdir -p build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DMOJO_STATIC_BUILD=ON
+        make -j$(nproc)
+        cpack -G DEB
+        # Rename the raw binary for general use
+        cp mojo mojo-linux-x86_64
+
+    - name: Upload Linux Assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          build/*.deb
+          build/mojo-linux-x86_64
+        name: Mojo ${{ env.PROJECT_VERSION }}
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        triplet: [x64-windows]
+    steps:
+    - uses: actions/checkout@v4
     - name: Get Version
       id: get_version
       shell: bash
       run: echo "PROJECT_VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_ENV
 
-    # --- Config & Build ---
-    - name: Configure CMake
+    - name: Install Dependencies
+      run: |
+        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 --triplet ${{ matrix.triplet }}
+        vcpkg integrate install
+
+    - name: Configure & Build
       shell: bash
       run: |
-        mkdir build
-        cd build
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
-        else
-          cmake .. -DCMAKE_BUILD_TYPE=Release
-        fi
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
+        cmake --build . --config Release
+        # Rename to specific name
+        mv Release/mojo.exe Release/mojo-windows-x64.exe
 
-    - name: Build
-      run: |
-        cmake --build build --config Release
-
-    # --- Prepare Artifact (Linux/macOS) ---
-    - name: Rename Binary (Unix)
-      if: runner.os != 'Windows'
-      run: |
-        cd build
-        mv mojo ../mojo-${{ env.PROJECT_VERSION }}-${{ matrix.target }}
-
-    # --- Prepare Artifact (Windows) ---
-    - name: Rename Binary (Windows)
-      if: runner.os == 'Windows'
-      shell: bash
-      run: |
-        cd build/Release
-        mv mojo.exe ../../mojo-${{ env.PROJECT_VERSION }}-${{ matrix.target }}.exe
-
-    # --- Upload Release Asset ---
-    - name: Upload Release Asset
+    - name: Rename & Upload
       uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: |
-          mojo-${{ env.PROJECT_VERSION }}-${{ matrix.target }}
-          mojo-${{ env.PROJECT_VERSION }}-${{ matrix.target }}.exe
+        files: build/Release/mojo-windows-x64.exe
         name: Mojo ${{ env.PROJECT_VERSION }}

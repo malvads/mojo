@@ -34,34 +34,30 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # --- Linux (Ubuntu) Dependencies ---
     - name: Install Dependencies (Ubuntu)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev libcli11-dev
 
-    # --- macOS Dependencies ---
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
         brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11
 
-    # --- Windows Dependencies (Vcpkg) ---
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
         vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 --triplet ${{ matrix.triplet }}
         vcpkg integrate install
 
-    # --- Build (Standard) ---
     - name: Configure CMake
       shell: bash
       run: |
         mkdir build
         cd build
         if [ "$RUNNER_OS" == "Windows" ]; then
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
         else
           cmake .. -DCMAKE_BUILD_TYPE=Release
         fi
