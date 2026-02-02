@@ -16,9 +16,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-15
+          - os: macos-14
             target: macos-arm
-          - os: macos-15-intel
+          - os: macos-13
             target: macos-intel
 
     steps:
@@ -45,16 +45,15 @@ jobs:
         files: build/mojo-${{ matrix.target }}
         name: Mojo ${{ env.PROJECT_VERSION }}
 
-  build-rpm:
-    name: Build Linux (RPM - CentOS Stream 9)
+  build-linux-rpm:
+    name: Build Linux (RPM)
     runs-on: ubuntu-latest
-    container: quay.io/centos/centos:stream9
+    container: fedora:41
     steps:
     - name: Install Build Tools
       run: |
         dnf -y update
-        dnf -y install git cmake make gcc-c++ wget rpm-build epel-release
-        dnf config-manager --set-enabled crb
+        dnf -y install git cmake make gcc-c++ wget rpm-build
         dnf -y install libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel cli11-devel libcap-devel libuv-devel libev-devel zlib-devel boost-devel
 
     - uses: actions/checkout@v4
@@ -75,18 +74,17 @@ jobs:
         files: build/*.rpm
         name: Mojo ${{ env.PROJECT_VERSION }}
 
-  build-debian:
-    name: Build Linux (DEB - Ubuntu 20.04)
+  build-linux-deb:
+    name: Build Linux (DEB)
     runs-on: ubuntu-latest
-    container: ubuntu:20.04
+    container: ubuntu:22.04
     steps:
     - name: Install Dependencies
       run: |
         apt-get update
         DEBIAN_FRONTEND=noninteractive apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev build-essential cmake wget git file libcap-dev libuv1-dev libev-dev zlib1g-dev libboost-all-dev
-        # Install CLI11 from jammy deb (safe header-only)
-        wget http://archive.ubuntu.com/ubuntu/pool/universe/c/cli11/libcli11-dev_2.1.2+ds-1_all.deb
-        dpkg -i libcli11-dev_2.1.2+ds-1_all.deb
+        # Install CLI11
+        apt-get install -y libcli11-dev
 
     - uses: actions/checkout@v4
     - name: Get Version
@@ -99,7 +97,6 @@ jobs:
         cmake .. -DCMAKE_BUILD_TYPE=Release -DMOJO_STATIC_BUILD=ON
         make -j$(nproc)
         cpack -G DEB
-        # Rename the raw binary for general use
         cp mojo mojo-linux-x86_64
 
     - name: Upload Linux Assets
@@ -112,10 +109,7 @@ jobs:
 
   build-windows:
     name: Build Windows
-    runs-on: windows-2022
-    strategy:
-      matrix:
-        triplet: [x64-windows]
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
     - name: Get Version
@@ -125,16 +119,15 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 boost --triplet ${{ matrix.triplet }}
+        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 boost --triplet x64-windows
         vcpkg integrate install
 
     - name: Configure & Build
       shell: bash
       run: |
         mkdir build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
         cmake --build . --config Release
-        # Rename to specific name
         mv Release/mojo.exe Release/mojo-windows-x64.exe
 
     - name: Rename & Upload

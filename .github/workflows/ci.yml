@@ -7,87 +7,86 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  build-standard:
+  build-linux:
+    name: Linux (${{ matrix.container }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        container:
+          - "ubuntu:24.04"
+          - "ubuntu:22.04"
+          - "fedora:41"
+          - "debian:bookworm"
+    container: ${{ matrix.container }}
+    steps:
+    - name: Install Dependencies (Debian/Ubuntu)
+      if: contains(matrix.container, 'ubuntu') || contains(matrix.container, 'debian')
+      run: |
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y git cmake build-essential libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev libcli11-dev libcap-dev libuv1-dev libev-dev zlib1g-dev libboost-all-dev
+
+    - name: Install Dependencies (Fedora)
+      if: contains(matrix.container, 'fedora')
+      run: |
+        dnf -y update
+        dnf -y install git cmake make gcc-c++ libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel cli11-devel libcap-devel libuv-devel libev-devel zlib-devel boost-devel
+
+    - uses: actions/checkout@v4
+
+    - name: Configure CMake
+      run: |
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DMOJO_STATIC_BUILD=ON
+
+    - name: Build
+      run: |
+        cmake --build build --config Release
+
+  build-macos:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: Ubuntu 24.04 (Noble - Latest LTS)
-            os: ubuntu-24.04
-          - name: Ubuntu 22.04 (Jammy - LTS)
-            os: ubuntu-22.04
-          - name: macOS 15 (Sequoia - Latest)
-            os: macos-15
-          - name: macOS 14 (Sonoma - Previous)
+          - name: macOS 14 (Apple Silicon)
             os: macos-14
-          - name: macOS 15 Intel (Sequoia - Intel)
-            os: macos-15-intel
-          - name: Windows 2025 (Server - Latest)
-            os: windows-2025
-            triplet: x64-windows
-          - name: Windows 2022 (Server - LTS)
-            os: windows-2022
-            triplet: x64-windows
-
+          - name: macOS 13 (Intel)
+            os: macos-13
     steps:
     - uses: actions/checkout@v4
-
-    - name: Install Dependencies (Ubuntu)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev libcli11-dev libboost-all-dev
-
-    - name: Install Dependencies (macOS)
-      if: runner.os == 'macOS'
+    
+    - name: Install Dependencies
       run: |
         brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11 boost
 
-    - name: Install Dependencies (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 boost --triplet ${{ matrix.triplet }}
-        vcpkg integrate install
-
-    - name: Configure CMake
-      shell: bash
-      run: |
-        mkdir build
-        cd build
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
-        else
-          cmake .. -DCMAKE_BUILD_TYPE=Release
-        fi
-
-    - name: Build
-      run: |
-        cmake --build build --config Release
-
-
-
-  build-fedora:
-    name: Fedora 43 (Latest)
-    runs-on: ubuntu-24.04
-    container: fedora:43
-    steps:
-    - name: Install Build Tools
-      run: |
-        dnf -y update
-        dnf -y install git cmake make gcc-c++ libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel cli11-devel boost-devel
-
-    - uses: actions/checkout@v4
-
     - name: Configure CMake
       run: |
-        mkdir build
-        cd build
+        mkdir build && cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
       run: |
         cmake --build build --config Release
 
+  build-windows:
+    name: Windows Server 2022
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
 
+    - name: Install Dependencies
+      run: |
+        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 boost --triplet x64-windows
+        vcpkg integrate install
+
+    - name: Configure CMake
+      shell: bash
+      run: |
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
+
+    - name: Build
+      run: |
+        cmake --build build --config Release
