@@ -4,17 +4,6 @@
 #include <memory>
 
 namespace Mojo {
-    
-enum class ErrorType {
-    None,
-    Network,
-    Proxy,
-    Timeout,
-    Browser,
-    Render,
-    Skipped,
-    Other
-};
 
 struct Response {
     bool success = false;

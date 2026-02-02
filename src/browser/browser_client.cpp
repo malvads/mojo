@@ -2,7 +2,6 @@
 #include "browser.hpp"
 #include "page.hpp"
 #include "../core/logger/logger.hpp"
-#include "../core/types/statuses.hpp"
 #include "../network/http/curl_client.hpp"
 #include "../core/types/constants.hpp"
 #include <algorithm>
@@ -24,7 +23,7 @@ void BrowserClient::set_proxy(const std::string& proxy) {
 bool BrowserClient::render_to_response(const std::string& url, Response& res) {
     if (url.find("http") != 0) {
         res.error = "Invalid URL scheme";
-        res.error_type = ErrorType::Other;
+        res.error_type = Network::Http::ErrorType::Other;
         return false;
     }
 
@@ -35,25 +34,25 @@ bool BrowserClient::render_to_response(const std::string& url, Response& res) {
         Logger::info("Browser: Navigating to " + url);
         if (!page->goto_url(url)) {
             res.error = "Browser navigation failed (Timeout or Network)";
-            res.error_type = ErrorType::Network; // Likely network if it reached here through magic proxy
+            res.error_type = Network::Http::ErrorType::Network;
             return false;
         }
         
         res.body = page->content();
         if (res.body.empty()) {
             res.error = "Browser returned empty content";
-            res.error_type = ErrorType::Render;
+            res.error_type = Network::Http::ErrorType::Render;
             return false;
         }
         
         return true;
     } catch (const std::exception& e) {
         res.error = std::string("Browser Engine Error: ") + e.what();
-        res.error_type = ErrorType::Browser;
+        res.error_type = Network::Http::ErrorType::Browser;
         return false;
     } catch (...) {
         res.error = "Unknown Browser Error";
-        res.error_type = ErrorType::Browser;
+        res.error_type = Network::Http::ErrorType::Browser;
         return false;
     }
 }
@@ -73,9 +72,9 @@ Response BrowserClient::get(const std::string& url) {
     res.success = render_to_response(url, res);
     
     if (res.success) {
-        res.status_code = static_cast<long>(Status::Ok);
+        res.status_code = static_cast<long>(HTTPCode::Ok);
     } else {
-        if (res.status_code == 0) res.status_code = static_cast<long>(Status::BrowserError);
+        if (res.status_code == 0) res.status_code = static_cast<long>(HTTPCode::BrowserError);
         Logger::error("Browser Error [" + url + "]: " + res.error);
     }
 
