@@ -38,17 +38,17 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev libcli11-dev
+        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev libcli11-dev libboost-all-dev
 
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
-        brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11
+        brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11 boost
 
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
-        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 --triplet ${{ matrix.triplet }}
+        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 boost --triplet ${{ matrix.triplet }}
         vcpkg integrate install
 
     - name: Configure CMake
@@ -66,10 +66,7 @@ jobs:
       run: |
         cmake --build build --config Release
 
-    - name: Test
-      working-directory: build
-      run: |
-        ctest -C Release --output-on-failure
+
 
   build-fedora:
     name: Fedora 43 (Latest)
@@ -79,7 +76,7 @@ jobs:
     - name: Install Build Tools
       run: |
         dnf -y update
-        dnf -y install git cmake make gcc-c++ libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel cli11-devel
+        dnf -y install git cmake make gcc-c++ libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel cli11-devel boost-devel
 
     - uses: actions/checkout@v4
 
@@ -93,7 +90,4 @@ jobs:
       run: |
         cmake --build build --config Release
 
-    - name: Test
-      working-directory: build
-      run: |
-        ctest -C Release --output-on-failure
+

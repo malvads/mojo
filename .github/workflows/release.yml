@@ -28,7 +28,7 @@ jobs:
       run: echo "PROJECT_VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_ENV
 
     - name: Install Dependencies
-      run: brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11
+      run: brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11 boost
 
     - name: Configure & Build
       run: |
@@ -55,7 +55,7 @@ jobs:
         dnf -y update
         dnf -y install git cmake make gcc-c++ wget rpm-build epel-release
         dnf config-manager --set-enabled crb
-        dnf -y install libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel cli11-devel libcap-devel libuv-devel libev-devel zlib-devel
+        dnf -y install libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel cli11-devel libcap-devel libuv-devel libev-devel zlib-devel boost-devel
 
     - uses: actions/checkout@v4
     - name: Get Version
@@ -83,7 +83,7 @@ jobs:
     - name: Install Dependencies
       run: |
         apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev build-essential cmake wget git file libcap-dev libuv1-dev libev-dev zlib1g-dev
+        DEBIAN_FRONTEND=noninteractive apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev build-essential cmake wget git file libcap-dev libuv1-dev libev-dev zlib1g-dev libboost-all-dev
         # Install CLI11 from jammy deb (safe header-only)
         wget http://archive.ubuntu.com/ubuntu/pool/universe/c/cli11/libcli11-dev_2.1.2+ds-1_all.deb
         dpkg -i libcli11-dev_2.1.2+ds-1_all.deb
@@ -125,7 +125,7 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 --triplet ${{ matrix.triplet }}
+        vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 boost --triplet ${{ matrix.triplet }}
         vcpkg integrate install
 
     - name: Configure & Build
