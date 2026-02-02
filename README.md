@@ -22,9 +22,38 @@
 
 Mojo is a high-performance, multithreaded web crawler tailored for creating high-quality datasets for Large Language Models (LLMs) and AI training. Written in C++17, it rapidly fetches entire websites and converts them into clean, structured Markdown, making it the ideal tool for building knowledge bases and RAG (Retrieval-Augmented Generation) pipelines.
 
-## Download
+## Installation
 
-You can download the latest pre-compiled binaries for Windows, macOS, and Linux from the [Releases](https://github.com/malvads/mojo/releases) page.
+You can download the latest pre-compiled binaries from the [Releases](https://github.com/malvads/mojo/releases) page.
+
+### Linux (Binary Packages)
+
+For maximum compatibility, we recommend using the official packages which automatically handle dependencies:
+
+**Debian / Ubuntu / Kali / Mint:**
+```bash
+sudo apt update
+sudo apt install ./mojo-0.1.0-debian.deb
+```
+
+**CentOS / RHEL / Fedora:**
+```bash
+sudo yum install epel-release 
+sudo yum install ./mojo-0.1.0-rhel.rpm
+```
+
+### macOS
+1. Download `mojo-macos-arm` (M1/M2/M3) or `mojo-macos-intel`.
+2. Move it to your bin folder and give it execution permissions:
+3. Make sure to grant priviledges to the binary via security settings, since it is not signed.
+```bash
+chmod +x mojo-macos-arm
+sudo mv mojo-macos-arm /usr/local/bin/mojo
+```
+
+### Windows
+1. Download `mojo-windows-x64.exe`.
+2. Run it from your terminal (CMD/Powershell).
 
 ## Key Features
 
@@ -153,33 +182,119 @@ Inside the engine, Mojo manages proxies using a **Priority Selection Vector**, w
 - **SOCKS4 (Priority 1)**: Medium priority.
 - **HTTP/HTTPS (Priority 0)**: Lowest priority.
 
-## Build Instructions
+## Build & Packaging Instructions
 
 ### Prerequisites
-- C++17 Compiler (GCC/Clang/MSVC)
+- C++17 Compiler (GCC, Clang, or MSVC)
+- CMake 3.10+
 - **libcurl** (Network)
 - **libgumbo** (HTML Parsing)
 - **libwebsockets** (WebSocket Communication)
 - **yaml-cpp** (YAML Parsing)
-- **Google Chrome** or **Chromium** (Runtime dependency for JS rendering)
+- **CLI11** (Command Line Parser)
+- **nlohmann_json** (JSON Parsing)
+- **Google Chrome** is required at runtime for JS rendering.
 
-### Linux (Ubuntu/Debian)
+---
+
+### Linux (Debian / Ubuntu)
+
+**1. Install Dependencies:**
 ```bash
-sudo apt-get install build-essential libcurl4-openssl-dev libgumbo-dev libwebsockets-dev libyaml-cpp-dev chromium
-make
+sudo apt update
+sudo apt install build-essential cmake git libcurl4-openssl-dev libgumbo-dev libwebsockets-dev libyaml-cpp-dev libcli11-dev nlohmann-json3-dev libcap-dev libuv1-dev libev-dev zlib1g-dev
 ```
 
-### macOS
-```bash
-brew install curl gumbo-parser libwebsockets yaml-cpp
-brew install --cask google-chrome
-make
-```
-
-### Windows / Cross-Platform (CMake)
+**2. Build & Package (DEB):**
 ```bash
 mkdir build && cd build
-cmake ..
-cmake --build .
+cmake .. -DCMAKE_BUILD_TYPE=Release -DMOJO_STATIC_BUILD=ON
+make -j$(nproc)
+
+# Create .deb package
+cpack -G DEB
 ```
+*Output: `mojo-0.1.0-Linux.deb`*
+
+**3. Install Package:**
+```bash
+sudo dpkg -i mojo-*.deb
+```
+
+---
+
+### Linux (Fedora / RHEL / CentOS)
+
+**1. Install Dependencies:**
+```bash
+sudo dnf install git cmake make gcc-c++ libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel cli11-devel libcap-devel libuv-devel libev-devel zlib-devel rpm-build
+```
+
+**2. Build & Package (RPM):**
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DMOJO_STATIC_BUILD=ON
+make -j$(nproc)
+
+# Create .rpm package
+cpack -G RPM
+```
+*Output: `mojo-0.1.0-Linux.rpm`*
+
+**3. Install Package:**
+```bash
+sudo rpm -i mojo-*.rpm
+```
+
+---
+
+### macOS (Intel & Apple Silicon)
+
+**1. Install Dependencies (Homebrew):**
+```bash
+brew install cmake curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11
+```
+
+**2. Build:**
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j$(sysctl -n hw.ncpu)
+```
+
+**3. Package & Install:**
+```bash
+# To verify functionality
+./mojo --help
+
+# To install system-wide
+sudo cp mojo /usr/local/bin/
+
+# To create a distributable zip
+zip mojo-macos.zip mojo
+```
+
+---
+
+### Windows (Powershell)
+
+**1. Install Dependencies (vcpkg):**
+Assuming you have [vcpkg](https://github.com/microsoft/vcpkg) installed at `C:\vcpkg`:
+```powershell
+vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 libuv zlib --triplet x64-windows-static
+vcpkg integrate install
+```
+
+**2. Build:**
+```powershell
+mkdir build; cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DVCPKG_TARGET_TRIPLET=x64-windows-static -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+cmake --build . --config Release
+```
+
+**3. Package & Install:**
+The executable is located at `Release\mojo.exe`.
+- **Install**: Add the `Release` folder to your system PATH.
+- **Package**: Right-click `mojo.exe` -> Send to -> Compressed (zipped) folder.
+
 
