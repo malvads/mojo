@@ -1,4 +1,13 @@
 UNAME_S := $(shell uname -s)
+INCLUDES = -Iinclude -Iinclude/vendor -I/opt/homebrew/include
+LIBS = -lcurl -lgumbo -lwebsockets -lyaml-cpp -lpthread
+
+ifneq ($(wildcard /opt/homebrew/include),)
+    INCLUDES += -I/opt/homebrew/include
+endif
+ifneq ($(wildcard /opt/homebrew/lib),)
+    LDFLAGS += -L/opt/homebrew/lib
+endif
 
 ifeq ($(UNAME_S),Darwin)
     CXX = clang++
@@ -11,7 +20,7 @@ else
 endif
 
 VERSION := $(shell cat VERSION)
-CXXFLAGS += -DMOJO_VERSION=\"$(VERSION)\" $(INCLUDES)
+CXXFLAGS += -std=c++17 -DMOJO_VERSION=\"$(VERSION)\" $(INCLUDES)
 
 SRC_DIR = src
 OBJ_DIR = obj

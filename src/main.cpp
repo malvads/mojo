@@ -1,19 +1,19 @@
 #include <iostream>
 #include <curl/curl.h>
-#include "mojo/logger.hpp"
-#include "mojo/crawler.hpp"
-#include "mojo/config.hpp"
-#include "mojo/browser_launcher.hpp"
+#include "logger/logger.hpp"
+#include "crawler/crawler.hpp"
+#include "config/config.hpp"
+#include "launcher/browser_launcher.hpp"
 
 namespace {
 
 
 
-void run_crawler(const Mojo::Config& config) {
+void run_crawler(const Mojo::Core::Config& config) {
     curl_global_init(CURL_GLOBAL_ALL);
 
     {
-        Mojo::CrawlerConfig crawler_config;
+        Mojo::Engine::CrawlerConfig crawler_config;
         crawler_config.max_depth = config.depth;
         crawler_config.threads = config.threads;
         crawler_config.output_dir = config.output_dir;
@@ -30,7 +30,7 @@ void run_crawler(const Mojo::Config& config) {
         crawler_config.proxy_bind_port = config.proxy_bind_port;
         crawler_config.cdp_port = config.cdp_port;
 
-        Mojo::Crawler crawler(crawler_config);
+        Mojo::Engine::Crawler crawler(crawler_config);
 
         for (const auto& url : config.urls) {
             crawler.start(url);
@@ -43,10 +43,10 @@ void run_crawler(const Mojo::Config& config) {
 } // namespace
 
 int main(int argc, char* argv[]) {
-    auto config = Mojo::Config::parse(argc, argv);
+    auto config = Mojo::Core::Config::parse(argc, argv);
     
     if (config.urls.empty()) {
-        Mojo::Logger::error("No URLs provided. Use --help for usage.");
+        Mojo::Core::Logger::error("No URLs provided. Use --help for usage.");
         return 1;
     }
 

@@ -1,112 +1,90 @@
 cmake_minimum_required(VERSION 3.10)
+project(mojo VERSION 0.1.0)
 
-file(READ "VERSION" VER)
-string(STRIP "${VER}" VER)
-project(mojo VERSION ${VER})
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
+
+
+option(ENABLE_FUZZING "Enable fuzzing instrumentation" OFF)
+
+if(ENABLE_FUZZING)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=fuzzer-no-link,address -g -O1")
+endif()
+
+# Enable strict warning flags as a "linter"
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Dependencies
-find_package(CURL REQUIRED)
-find_library(GUMBO_LIBRARY NAMES gumbo gumbo-parser REQUIRED)
-find_path(GUMBO_INCLUDE_DIR NAMES gumbo.h REQUIRED)
 find_package(Threads REQUIRED)
+find_package(CURL REQUIRED)
+find_package(Boost REQUIRED)
 find_package(nlohmann_json REQUIRED)
-find_package(yaml-cpp REQUIRED)
-find_package(CLI11 REQUIRED)
-find_library(WEBSOCKETS_LIBRARY NAMES websockets libwebsockets REQUIRED)
 
-# Include Directories
-include_directories(
-    include
-    include/vendor
-    ${GUMBO_INCLUDE_DIR}
-    ${CURL_INCLUDE_DIRS}
+# Global Includes (System)
+include_directories(/opt/homebrew/include)
+link_directories(/opt/homebrew/lib)
+
+find_library(GUMBO_LIBRARY gumbo PATHS /opt/homebrew/lib /usr/local/lib)
+find_library(YAML_CPP_LIBRARY yaml-cpp PATHS /opt/homebrew/lib /usr/local/lib)
+find_library(WEBSOCKETS_LIBRARY websockets PATHS /opt/homebrew/lib /usr/local/lib)
+
+if(NOT GUMBO_LIBRARY)
+    message(WARNING "Gumbo library not found!")
+endif()
+
+if(NOT YAML_CPP_LIBRARY)
+    message(WARNING "yaml-cpp library not found!")
+endif()
+
+if(NOT WEBSOCKETS_LIBRARY)
+    message(WARNING "websockets library not found!")
+endif()
+
+# Modules (Order matters for dependencies)
+add_subdirectory(src/core)
+add_subdirectory(src/utils)
+add_subdirectory(src/network)
+add_subdirectory(src/proxy)
+add_subdirectory(src/browser)
+add_subdirectory(src/engine)
+
+
+if(ENABLE_FUZZING)
+    add_subdirectory(tests/fuzzers)
+endif()
+
+# Testing
+enable_testing()
+include(FetchContent)
+FetchContent_Declare(
+  cpp-httplib
+  GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+  GIT_TAG        v0.14.3
 )
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+)
+# For Windows: do not override the cache variables
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest cpp-httplib)
 
-# Source Files
-file(GLOB_RECURSE SOURCES "src/*.cpp")
+add_subdirectory(tests/integration)
+add_subdirectory(tests/unit)
 
-# Executable
-add_executable(mojo ${SOURCES})
+# Main Executable
+add_executable(mojo src/main.cpp)
 
-# Handle yaml-cpp target differences across versions/OSs
-if(TARGET yaml-cpp::yaml-cpp)
-    set(YAML_CPP_LIB yaml-cpp::yaml-cpp)
-elseif(TARGET yaml-cpp)
-    set(YAML_CPP_LIB yaml-cpp)
-else()
-    set(YAML_CPP_LIB ${YAML_CPP_LIBRARIES})
-endif()
-
-# Linking Strategy
-option(MOJO_STATIC_BUILD "Build with static linking for portability (Linux only)" OFF)
-
-if(UNIX AND NOT APPLE AND MOJO_STATIC_BUILD)
-    set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
-
-    find_package(OpenSSL REQUIRED)
-    find_library(GUMBO_LIB NAMES libgumbo.a gumbo REQUIRED)
-    find_library(YAML_LIB NAMES libyaml-cpp.a yaml-cpp REQUIRED)
-    find_library(WEBSOCKETS_LIB NAMES libwebsockets.a websockets REQUIRED)
-    
-    find_library(CAP_LIB NAMES libcap.a cap)
-    find_library(UV_LIB NAMES libuv.a uv)
-    find_library(EV_LIB NAMES libev.a ev)
-    find_library(Z_LIB NAMES libz.a z)
-
-    target_link_libraries(mojo PRIVATE 
-        CURL::libcurl
-        ${GUMBO_LIB}
-        ${WEBSOCKETS_LIB}
-        OpenSSL::SSL
-        OpenSSL::Crypto
-        ${CAP_LIB} ${UV_LIB} ${EV_LIB} ${Z_LIB}
-        nlohmann_json::nlohmann_json
-        ${YAML_LIB}
-        CLI11::CLI11
-        Threads::Threads
-    )
-else()
-    # Standard linking for development/macOS/Windows
-    target_link_libraries(mojo PRIVATE 
-        CURL::libcurl
-        ${GUMBO_LIBRARY}
-        ${WEBSOCKETS_LIBRARY}
-        nlohmann_json::nlohmann_json
-        ${YAML_CPP_LIB}
-        CLI11::CLI11
-        Threads::Threads
-    )
-endif()
-
-# Installation
-install(TARGETS mojo DESTINATION bin)
-
-# Packaging (CPack)
-set(CPACK_PACKAGE_NAME "mojo")
-set(CPACK_PACKAGE_VENDOR "Miguel Alvarez")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "High-performance web crawler for AI and LLM data ingestion")
-set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
-set(CPACK_PACKAGE_CONTACT "Miguel Alvarez <mialvare@redhat.com>")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-
-# Debian (.deb) Specifics
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Miguel Alvarez <mialvare@redhat.com>")
-set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
-set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.17)")
-
-# Fedora (.rpm) Specifics
-set(CPACK_RPM_PACKAGE_LICENSE "MIT")
-set(CPACK_RPM_PACKAGE_AUTOREQ ON)
-set(CPACK_RPM_PACKAGE_REQUIRES "epel-release")
-
-# Inclusion
-set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${PROJECT_VERSION}-${CMAKE_SYSTEM_PROCESSOR}")
-set(CPACK_DEBIAN_FILE_NAME "mojo-${PROJECT_VERSION}-debian.deb")
-set(CPACK_RPM_FILE_NAME "mojo-${PROJECT_VERSION}-rhel.rpm")
-
-include(CPack)
+# Link
+target_link_libraries(mojo 
+    PRIVATE 
+    mojo_engine
+    Threads::Threads
+)
