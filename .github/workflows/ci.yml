@@ -66,6 +66,11 @@ jobs:
       run: |
         cmake --build build --config Release
 
+    - name: Test
+      working-directory: build
+      run: |
+        ctest -C Release --output-on-failure
+
   build-fedora:
     name: Fedora 43 (Latest)
     runs-on: ubuntu-24.04
@@ -87,3 +92,8 @@ jobs:
     - name: Build
       run: |
         cmake --build build --config Release
+
+    - name: Test
+      working-directory: build
+      run: |
+        ctest -C Release --output-on-failure

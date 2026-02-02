@@ -40,7 +40,7 @@ jobs:
       run: |
         mv build/mojo build/mojo-${{ matrix.target }}
         
-    - uses: softprops/action-gh-release@v1
+    - uses: softprops/action-gh-release@v2
       with:
         files: build/mojo-${{ matrix.target }}
         name: Mojo ${{ env.PROJECT_VERSION }}
@@ -70,7 +70,7 @@ jobs:
         cpack -G RPM
 
     - name: Upload RPM
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: build/*.rpm
         name: Mojo ${{ env.PROJECT_VERSION }}
@@ -103,7 +103,7 @@ jobs:
         cp mojo mojo-linux-x86_64
 
     - name: Upload Linux Assets
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: |
           build/*.deb
@@ -138,7 +138,7 @@ jobs:
         mv Release/mojo.exe Release/mojo-windows-x64.exe
 
     - name: Rename & Upload
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: build/Release/mojo-windows-x64.exe
         name: Mojo ${{ env.PROJECT_VERSION }}
