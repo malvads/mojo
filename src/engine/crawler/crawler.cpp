@@ -6,7 +6,6 @@
 #include "../../core/logger/logger.hpp"
 #include "../../utils/url/url.hpp"
 #include "../../core/types/constants.hpp"
-#include "../../core/types/statuses.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -173,18 +172,18 @@ bool Crawler::fetch_with_retry(HttpClient& client, const std::string& url, int d
 
         Response res = client.get(url);
 
-        if (!res.success && res.error == "Skipped: Image detected") {
+        if (res.skipped || res.error_type == Network::Http::ErrorType::Skipped) {
             Logger::info("Skipped (Content-Type Image): " + url);
             return true;
         }
 
         if (proxy_opt) {
-            bool is_proxy_fail = (res.error_type == ErrorType::Proxy || res.status_code == 403 || res.status_code == 429);
+            bool is_proxy_fail = (res.error_type == Network::Http::ErrorType::Proxy || res.status_code == 403 || res.status_code == 429);
             bool ok = res.success || (!is_proxy_fail && res.status_code != 0);
             proxy_pool_.report(*proxy_opt, ok);
         }
 
-        bool page_success = (res.success || res.status_code == static_cast<long>(Status::NotFound)) && res.status_code != 403 && res.status_code != 429;
+        bool page_success = (res.success || res.status_code == static_cast<long>(HTTPCode::NotFound)) && res.status_code != 403 && res.status_code != 429;
         if (page_success) {
             handle_response(url, depth, res);
             return true;
@@ -192,9 +191,9 @@ bool Crawler::fetch_with_retry(HttpClient& client, const std::string& url, int d
 
         if (attempt == Constants::MAX_RETRIES) {
             std::string err_msg = "Failed: " + url + " (" + res.error + ")";
-            if (res.error_type == ErrorType::Render) err_msg += " [Render Error]";
-            else if (res.error_type == ErrorType::Proxy) err_msg += " [Proxy Error]";
-            else if (res.error_type == ErrorType::Timeout) err_msg += " [Timeout]";
+            if (res.error_type == Network::Http::ErrorType::Render) err_msg += " [Render Error]";
+            else if (res.error_type == Network::Http::ErrorType::Proxy) err_msg += " [Proxy Error]";
+            else if (res.error_type == Network::Http::ErrorType::Timeout) err_msg += " [Timeout]";
             Logger::error(err_msg + " - Max retries reached");
         } else {
             std::this_thread::sleep_for(Mojo::Core::get_backoff_time(attempt));
@@ -205,7 +204,7 @@ bool Crawler::fetch_with_retry(HttpClient& client, const std::string& url, int d
 }
 
 void Crawler::handle_response(const std::string& url, int depth, const Response& res) {
-    if (res.status_code != static_cast<long>(Status::Ok)) {
+    if (res.status_code != static_cast<long>(HTTPCode::Ok)) {
         Logger::warn("HTTP " + std::to_string(res.status_code) + ": " + url);
         return;
     }

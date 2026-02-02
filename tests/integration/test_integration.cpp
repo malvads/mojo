@@ -18,10 +18,11 @@ public:
         });
     }
 
-    void start(int port) {
+    void start(int port, const std::string& host = "127.0.0.1") {
         port_ = port;
-        thread_ = std::thread([this, port]() {
-            server_.listen("127.0.0.1", port);
+        host_ = host;
+        thread_ = std::thread([this, host, port]() {
+            server_.listen(host.c_str(), port);
         });
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
@@ -32,13 +33,14 @@ public:
     }
 
     std::string url() const {
-        return "http://127.0.0.1:" + std::to_string(port_);
+        return "http://" + host_ + ":" + std::to_string(port_);
     }
 
 private:
     httplib::Server server_;
     std::thread thread_;
     int port_ = 0;
+    std::string host_ = "127.0.0.1";
 };
 
 class IntegrationTest : public ::testing::Test {
@@ -94,7 +96,7 @@ TEST_F(IntegrationTest, ImageFiltering) {
     crawler.start(server.url() + "/");
 
     EXPECT_TRUE(fs::exists("test_output/127.0.0.1_8082/index.md"));
-    EXPECT_TRUE(fs::exists("test_output/127.0.0.1_8082/logo.png"));
+    EXPECT_FALSE(fs::exists("test_output/127.0.0.1_8082/logo.png"));
     EXPECT_FALSE(fs::exists("test_output/127.0.0.1_8082/logo.md"));
     
     server.stop();
@@ -102,12 +104,12 @@ TEST_F(IntegrationTest, ImageFiltering) {
 
 TEST_F(IntegrationTest, DomainRestriction) {
     TestServer server1;
-    server1.set_route("/", "<html><body><a href='http://127.0.0.1:8084/ext'>External</a></body></html>");
-    server1.start(8083);
+    server1.set_route("/", "<html><body><a href='http://localhost:8084/ext'>External</a></body></html>");
+    server1.start(8083, "127.0.0.1");
 
     TestServer server2;
     server2.set_route("/ext", "<html><body>External Page</body></html>");
-    server2.start(8084);
+    server2.start(8084, "localhost");
 
     Mojo::Engine::CrawlerConfig config;
     config.max_depth = 1;
@@ -119,7 +121,7 @@ TEST_F(IntegrationTest, DomainRestriction) {
     crawler.start(server1.url() + "/");
 
     EXPECT_TRUE(fs::exists("test_output/127.0.0.1_8083/index.md"));
-    EXPECT_FALSE(fs::exists("test_output/127.0.0.1_8084/ext.md"));
+    EXPECT_FALSE(fs::exists("test_output/localhost_8084/ext.md"));
 
     server1.stop();
     server2.stop();
