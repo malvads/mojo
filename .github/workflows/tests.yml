@@ -16,6 +16,9 @@ jobs:
         include:
           - name: Ubuntu 24.04
             os: ubuntu-24.04
+          - name: Ubuntu 24.04 ASan
+            os: ubuntu-24.04
+            asan: true
           - name: macOS 15
             os: macos-15
           - name: Windows 2025
@@ -29,7 +32,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev libcli11-dev libboost-all-dev libabsl-dev
+        sudo apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev libcli11-dev libboost-all-dev libabsl-dev cppcheck
 
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
@@ -49,13 +52,20 @@ jobs:
         cd build
         if [ "$RUNNER_OS" == "Windows" ]; then
           cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
+        elif [ "${{ matrix.asan }}" == "true" ]; then
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON
         else
-          cmake .. -DCMAKE_BUILD_TYPE=Release
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
         fi
 
     - name: Build
       run: |
         cmake --build build --config Release
+
+    - name: Run Cppcheck
+      if: runner.os == 'Linux' && matrix.asan != true
+      run: |
+        cppcheck --project=build/compile_commands.json --enable=warning,performance,portability --error-exitcode=1 --suppress=missingIncludeSystem --suppress=unusedFunction -i build
 
     - name: Run Unit Tests
       working-directory: build

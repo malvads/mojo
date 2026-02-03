@@ -132,13 +132,14 @@ Config Config::parse(int argc, char* argv[]) {
             // Strip comments
             size_t hash = line.find('#');
             if (hash != std::string::npos) {
-                line = line.substr(0, hash);
-                // re-trim
-                size_t last = line.find_last_not_of(" \t\r\n");
-                if (last == std::string::npos)
-                    continue;
-                line = line.substr(0, last + 1);
+                line.resize(hash);
             }
+
+            // re-trim
+            size_t last = line.find_last_not_of(" \t\r\n");
+            if (last == std::string::npos)
+                continue;
+            line.resize(last + 1);
 
             if (!line.empty())
                 config.proxies.push_back(line);

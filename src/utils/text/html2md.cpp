@@ -550,7 +550,7 @@ bool Converter::OnHasLeftTag() {
 
     size_t space_pos = current_tag_.find(' ');
     if (space_pos != string::npos) {
-        current_tag_ = current_tag_.substr(0, space_pos);
+        current_tag_.resize(space_pos);
     }
 
     if (current_tag_.empty())
@@ -574,7 +574,7 @@ bool Converter::OnHasLeftTag() {
 }
 
 Converter* Converter::ShortenMarkdown(size_t chars) {
-    md_ = md_.substr(0, md_.length() - chars);
+    md_.resize(md_.length() - chars);
 
     if (chars > chars_in_curr_line_)
         chars_in_curr_line_ = 0;

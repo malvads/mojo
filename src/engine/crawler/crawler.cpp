@@ -301,7 +301,8 @@ void Crawler::save_file(const std::string& url,
     }
 
     if (filename.size() > 3 && filename.substr(filename.size() - 3) == ".md") {
-        filename = filename.substr(0, filename.size() - 3) + extension;
+        filename.resize(filename.size() - 3);
+        filename += extension;
     }
 
     try {

@@ -146,14 +146,14 @@ std::string Url::resolve(const std::string& base, const std::string& relative) {
         std::string dir = baseParsed.path;
         size_t      q   = dir.find('?');
         if (q != std::string::npos)
-            dir = dir.substr(0, q);
+            dir.resize(q);
         size_t f = dir.find('#');
         if (f != std::string::npos)
-            dir = dir.substr(0, f);
+            dir.resize(f);
 
         size_t lastSlash = dir.find_last_of('/');
         if (lastSlash != std::string::npos) {
-            dir = dir.substr(0, lastSlash + 1);
+            dir.resize(lastSlash + 1);
         }
         else {
             dir = "/";
@@ -174,7 +174,7 @@ std::string Url::resolve(const std::string& base, const std::string& relative) {
     size_t      qf = path.find_first_of("?#");
     if (qf != std::string::npos) {
         query_frag = path.substr(qf);
-        path       = path.substr(0, qf);
+        path.resize(qf);
     }
 
     std::vector<std::string> segments;
@@ -236,7 +236,8 @@ std::string Url::to_filename(const std::string& url) {
     size_t lastSlash = path.find_last_of('/');
 
     if (lastDot != std::string::npos && lastDot > lastSlash) {
-        path = path.substr(0, lastDot) + ".md";
+        path.resize(lastDot);
+        path += ".md";
     }
     else {
         path += ".md";

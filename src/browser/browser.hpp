@@ -19,7 +19,7 @@ public:
     void                  close();
     bool                  is_connected() const;
 
-    std::string get_host() const {
+    const std::string& get_host() const {
         return host_;
     }
     int get_port() const {

@@ -35,7 +35,7 @@ void MurmurHash3_x64_128(const void* key, int len, uint32_t seed, void* out) {
     const uint64_t c1 = BIG_CONSTANT(0x87c37b91114253d5);
     const uint64_t c2 = BIG_CONSTANT(0x4cf5ad432745937f);
 
-    const uint64_t* blocks = (const uint64_t*)(data);
+    const uint64_t* blocks = reinterpret_cast<const uint64_t*>(data);
 
     for (int i = 0; i < nblocks; i++) {
         uint64_t k1 = getblock64(blocks, i * 2 + 0);

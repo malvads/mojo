@@ -141,7 +141,7 @@ struct Options {
      */
     bool keepHtmlEntities = false;
 
-    inline bool operator==(html2md::Options o) const {
+    inline bool operator==(const html2md::Options& o) const {
         return splitLines == o.splitLines && unorderedList == o.unorderedList
                && orderedList == o.orderedList && includeTitle == o.includeTitle
                && softBreak == o.softBreak && hardBreak == o.hardBreak
