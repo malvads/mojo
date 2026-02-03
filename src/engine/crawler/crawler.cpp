@@ -328,7 +328,7 @@ void Crawler::save_file(const std::string& url,
 
 std::shared_ptr<RobotsTxt> Crawler::get_cached_robots(const std::string& domain) {
     std::lock_guard<std::mutex> lock(robots_mutex_);
-    const auto it = robots_cache_.find(domain);
+    const auto                  it = robots_cache_.find(domain);
     if (it != robots_cache_.end()) {
         return it->second;
     }
@@ -349,7 +349,8 @@ std::string Crawler::get_robots_url(const Mojo::Utils::UrlParsed& parsed) {
     return robots_url;
 }
 
-std::shared_ptr<RobotsTxt> Crawler::fetch_robots_txt(const std::string& robots_url, HttpClient& client) {
+std::shared_ptr<RobotsTxt> Crawler::fetch_robots_txt(const std::string& robots_url,
+                                                     HttpClient&        client) {
     Logger::info("Fetching robots.txt: " + robots_url);
     Response res = client.get(robots_url);
 
