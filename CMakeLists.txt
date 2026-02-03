@@ -65,7 +65,25 @@ FetchContent_Declare(
   URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+find_package(absl REQUIRED)
+FetchContent_Declare(
+  robotstxt
+  GIT_REPOSITORY https://github.com/google/robotstxt.git
+  GIT_TAG        master
+)
+
 FetchContent_MakeAvailable(googletest cpp-httplib)
+FetchContent_GetProperties(robotstxt)
+if(NOT robotstxt_POPULATED)
+  FetchContent_Populate(robotstxt)
+  add_library(robots STATIC
+    ${robotstxt_SOURCE_DIR}/robots.cc
+    ${robotstxt_SOURCE_DIR}/robots.h
+  )
+  target_include_directories(robots SYSTEM PUBLIC ${robotstxt_SOURCE_DIR})
+  target_link_libraries(robots PUBLIC absl::strings absl::fixed_array absl::flat_hash_map)
+  target_compile_options(robots PRIVATE -Wno-unused-parameter)
+endif()
 
 add_subdirectory(tests/integration)
 add_subdirectory(tests/unit)

@@ -3,6 +3,7 @@
 #include <condition_variable>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <string>
 #include <thread>
@@ -10,10 +11,13 @@
 #include <vector>
 
 #include "../../browser/launcher/browser_launcher.hpp"
+#include "../../core/types/constants.hpp"
 #include "../../network/http/http_client.hpp"
 #include "../../proxy/pool/proxy_pool.hpp"
 #include "../../proxy/server/proxy_server.hpp"
 #include "../../utils/crypto/bloom_filter.hpp"
+#include "../../utils/robotstxt/robotstxt.hpp"
+#include "../../utils/url/url.hpp"
 
 namespace Mojo {
 namespace Engine {
@@ -23,6 +27,7 @@ using namespace Mojo::Proxy::Pool;
 using namespace Mojo::Proxy::Server;
 using namespace Mojo::Browser::Launcher;
 using namespace Mojo::Network::Http;
+using namespace Mojo::Utils;
 
 struct CrawlerConfig {
     int         max_depth;
@@ -40,6 +45,7 @@ struct CrawlerConfig {
     std::map<std::string, int> proxy_priorities;
     int                        proxy_retries;
     int                        proxy_threads = 32;
+    std::string                user_agent    = Mojo::Core::Constants::USER_AGENT;
 };
 
 class Crawler {
@@ -78,6 +84,18 @@ private:
     std::string       browser_path_;
     bool              headless_;
     int               proxy_threads_;
+    std::string       user_agent_;
+
+    std::map<std::string, RobotsTxt> robots_cache_;
+    std::mutex                       robots_mutex_;
+
+    bool ensure_robots_txt(const std::string& domain, HttpClient& client);
+    bool is_url_allowed(const std::string& url, HttpClient& client);
+
+    std::optional<RobotsTxt> get_cached_robots(const std::string& domain);
+    void                     cache_robots(const std::string& domain, const RobotsTxt& robots);
+    std::string              get_robots_url(const Mojo::Utils::UrlParsed& parsed);
+    RobotsTxt                fetch_robots_txt(const std::string& robots_url, HttpClient& client);
 
     void worker_loop();
     void process_task(HttpClient& client, std::string url, int depth);

@@ -7,6 +7,7 @@ add_executable(unit_tests
     test_crypto.cpp
     test_proxy_pool.cpp
     test_browser_launcher.cpp
+    test_robotstxt.cpp
 )
 
 target_link_libraries(unit_tests

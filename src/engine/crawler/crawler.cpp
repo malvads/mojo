@@ -18,7 +18,6 @@ using namespace Mojo::Core;
 using namespace Mojo::Network::Http;
 using namespace Mojo::Browser;
 using namespace Mojo::Utils::Text;
-using namespace Mojo::Utils::Url;
 using namespace Mojo::Proxy::Server;
 using namespace Mojo::Proxy::Pool;
 using namespace Mojo::Browser::Launcher;
@@ -36,7 +35,8 @@ Crawler::Crawler(const CrawlerConfig& config)
       render_js_(config.render_js),
       browser_path_(config.browser_path),
       headless_(config.headless),
-      proxy_threads_(config.proxy_threads) {
+      proxy_threads_(config.proxy_threads),
+      user_agent_(config.user_agent) {
 }
 
 Crawler::~Crawler() {
@@ -146,6 +146,10 @@ void Crawler::worker_loop() {
 }
 
 void Crawler::process_task(HttpClient& client, std::string url, int depth) {
+    if (!is_url_allowed(url, client)) {
+        return;
+    }
+
     if (fetch_with_retry(client, url, depth)) {
         return;
     }
@@ -164,7 +168,7 @@ void Crawler::process_task(HttpClient& client, std::string url, int depth) {
 }
 
 bool Crawler::fetch_with_retry(HttpClient& client, const std::string& url, int depth) {
-    if (Url::is_image(url)) {
+    if (Mojo::Utils::Url::is_image(url)) {
         Logger::info("Skipping image URL: " + url);
         return true;
     }
@@ -244,10 +248,10 @@ void Crawler::handle_response(const std::string& url, int depth, const Response&
 
     std::vector<std::string> links = Converter::extract_links(res.body);
     for (const auto& link : links) {
-        std::string absolute_link = Url::resolve(base_url, link);
+        std::string absolute_link = Mojo::Utils::Url::resolve(base_url, link);
         if (absolute_link.empty())
             continue;
-        if (!Url::is_same_domain(start_domain_, absolute_link))
+        if (!Mojo::Utils::Url::is_same_domain(start_domain_, absolute_link))
             continue;
 
         add_url(std::move(absolute_link), depth + 1);
@@ -257,10 +261,10 @@ void Crawler::handle_response(const std::string& url, int depth, const Response&
 void Crawler::save_markdown(const std::string& url, const std::string& content) {
     std::string filename;
     if (tree_structure_) {
-        filename = Url::to_filename(url);
+        filename = Mojo::Utils::Url::to_filename(url);
     }
     else {
-        filename = Url::to_flat_filename(url);
+        filename = Mojo::Utils::Url::to_flat_filename(url);
     }
 
     try {
@@ -290,10 +294,10 @@ void Crawler::save_file(const std::string& url,
                         const std::string& extension) {
     std::string filename;
     if (tree_structure_) {
-        filename = Url::to_filename(url);
+        filename = Mojo::Utils::Url::to_filename(url);
     }
     else {
-        filename = Url::to_flat_filename(url);
+        filename = Mojo::Utils::Url::to_flat_filename(url);
     }
 
     if (filename.size() > 3 && filename.substr(filename.size() - 3) == ".md") {
@@ -320,6 +324,77 @@ void Crawler::save_file(const std::string& url,
     } catch (...) {
         Logger::error("FS Error: " + filename);
     }
+}
+
+std::optional<RobotsTxt> Crawler::get_cached_robots(const std::string& domain) {
+    std::lock_guard<std::mutex> lock(robots_mutex_);
+    if (robots_cache_.count(domain)) {
+        return robots_cache_.at(domain);
+    }
+    return std::nullopt;
+}
+
+void Crawler::cache_robots(const std::string& domain, const RobotsTxt& robots) {
+    std::lock_guard<std::mutex> lock(robots_mutex_);
+    robots_cache_[domain] = robots;
+}
+
+std::string Crawler::get_robots_url(const Mojo::Utils::UrlParsed& parsed) {
+    std::string robots_url = parsed.scheme + "://" + parsed.host;
+    if (!parsed.port.empty()) {
+        robots_url += ":" + parsed.port;
+    }
+    robots_url += "/robots.txt";
+    return robots_url;
+}
+
+RobotsTxt Crawler::fetch_robots_txt(const std::string& robots_url, HttpClient& client) {
+    Logger::info("Fetching robots.txt: " + robots_url);
+    Response res = client.get(robots_url);
+
+    if (res.status_code >= 200 && res.status_code < 300) {
+        Logger::info("Parsed robots.txt");
+        return RobotsTxt::parse(res.body);
+    }
+    else {
+        Logger::warn("Could not fetch robots.txt (Status: " + std::to_string(res.status_code)
+                     + ")");
+        return RobotsTxt();
+    }
+}
+
+bool Crawler::ensure_robots_txt(const std::string& url, HttpClient& client) {
+    auto        parsed = Mojo::Utils::Url::parse(url);
+    std::string domain = parsed.host;
+
+    if (get_cached_robots(domain).has_value()) {
+        return true;
+    }
+
+    std::string robots_url = get_robots_url(parsed);
+    RobotsTxt   robots     = fetch_robots_txt(robots_url, client);
+    cache_robots(domain, robots);
+
+    return true;
+}
+
+bool Crawler::is_url_allowed(const std::string& url, HttpClient& client) {
+    auto parsed = Mojo::Utils::Url::parse(url);
+    if (parsed.host.empty() || parsed.path == "/robots.txt") {
+        return true;
+    }
+
+    ensure_robots_txt(url, client);
+
+    auto robots_opt = get_cached_robots(parsed.host);
+    if (robots_opt.has_value()) {
+        std::string path = parsed.path.empty() ? "/" : parsed.path;
+        if (!robots_opt->is_allowed(user_agent_, path)) {
+            Logger::info("Blocked by robots.txt: " + url);
+            return false;
+        }
+    }
+    return true;
 }
 
 }  // namespace Engine
