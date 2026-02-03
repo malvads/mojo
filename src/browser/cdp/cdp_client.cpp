@@ -1,9 +1,9 @@
 #include "cdp_client.hpp"
 #include <chrono>
-#include <limits>
 #include <curl/curl.h>
 #include <deque>
 #include <iostream>
+#include <limits>
 #include <thread>
 #include "logger/logger.hpp"
 
@@ -98,8 +98,8 @@ static int callback_cdp(struct lws*               wsi,
         case LWS_CALLBACK_CLIENT_WRITEABLE:
             if (ctx->write_pending) {
                 constexpr size_t kMaxPayload = std::numeric_limits<unsigned short>::max();
-                auto             buf         = std::make_unique<unsigned char[]>(LWS_PRE + kMaxPayload);
-                size_t           mlen        = ctx->pending_message.length();
+                auto             buf  = std::make_unique<unsigned char[]>(LWS_PRE + kMaxPayload);
+                size_t           mlen = ctx->pending_message.length();
                 if (mlen > kMaxPayload)
                     mlen = kMaxPayload;
                 memcpy(&buf[LWS_PRE], ctx->pending_message.c_str(), mlen);

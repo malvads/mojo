@@ -43,7 +43,7 @@ struct CrawlerConfig {
     int                        cdp_port        = 9222;
     std::vector<std::string>   proxies;
     std::map<std::string, int> proxy_priorities;
-    int                        proxy_retries;
+    int                        proxy_retries = Mojo::Core::Constants::DEFAULT_PROXY_RETRIES;
     int                        proxy_threads = 32;
     std::string                user_agent    = Mojo::Core::Constants::USER_AGENT;
 };
