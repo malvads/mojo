@@ -328,8 +328,9 @@ void Crawler::save_file(const std::string& url,
 
 std::shared_ptr<RobotsTxt> Crawler::get_cached_robots(const std::string& domain) {
     std::lock_guard<std::mutex> lock(robots_mutex_);
-    if (robots_cache_.count(domain)) {
-        return robots_cache_.at(domain);
+    const auto it = robots_cache_.find(domain);
+    if (it != robots_cache_.end()) {
+        return it->second;
     }
     return nullptr;
 }

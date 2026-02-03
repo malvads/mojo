@@ -71,7 +71,7 @@ if(NOT absl_FOUND)
   FetchContent_Declare(
     abseil-cpp
     GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
-    GIT_TAG        20230802.1
+    GIT_TAG        20240722.0
   )
   FetchContent_MakeAvailable(abseil-cpp)
 endif()
