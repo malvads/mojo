@@ -157,7 +157,10 @@ Disallow: /
 
 ## Advanced Proxy Usage
 
-Mojo supports sophisticated proxy configurations to ensure continuous crawling without being blocked.
+> **Notice:** Always scrape responsibly. Use proxies properly, follow `robots.txt`, respect rate limits, and comply with site terms. If not, Mojo is not the correct fit for you.
+
+Many websites implement IP bans, or geo-restrictions to prevent automated access. By using proxies, Mojo can distribute requests across multiple IP addresses, reducing the risk of blocks and ensuring more reliable crawling.  
+**Important:** This feature is intended to **help you scrape responsibly**, not to bypass site rules. Always follow `robots.txt`, respect rate limits, and comply with each site's terms of service.
 
 ### 1. Using CLI Arguments
 Single proxy with custom gateway threads:
