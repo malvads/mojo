@@ -21,7 +21,7 @@ void BrowserClient::set_proxy(const std::string& proxy) {
 }
 
 bool BrowserClient::render_to_response(const std::string& url, Response& res) {
-    if (url.find("http") != 0) {
+    if (url.compare(0, 4, "http") != 0) {
         res.error      = "Invalid URL scheme";
         res.error_type = Network::Http::ErrorType::Other;
         return false;
