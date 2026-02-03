@@ -65,7 +65,34 @@ FetchContent_Declare(
   URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+find_package(absl QUIET)
+if(NOT absl_FOUND)
+  message(STATUS "Abseil not found via find_package, using FetchContent...")
+  FetchContent_Declare(
+    abseil-cpp
+    GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
+    GIT_TAG        20240722.0
+  )
+  FetchContent_MakeAvailable(abseil-cpp)
+endif()
+FetchContent_Declare(
+  robotstxt
+  GIT_REPOSITORY https://github.com/google/robotstxt.git
+  GIT_TAG        86d5836ba2d5a0b6b938ab49501be0e09d9c276c
+)
+
 FetchContent_MakeAvailable(googletest cpp-httplib)
+FetchContent_GetProperties(robotstxt)
+if(NOT robotstxt_POPULATED)
+  FetchContent_Populate(robotstxt)
+  add_library(robots STATIC
+    ${robotstxt_SOURCE_DIR}/robots.cc
+    ${robotstxt_SOURCE_DIR}/robots.h
+  )
+  target_include_directories(robots SYSTEM PUBLIC ${robotstxt_SOURCE_DIR})
+  target_link_libraries(robots PUBLIC absl::strings absl::fixed_array absl::flat_hash_map)
+  target_compile_options(robots PRIVATE -Wno-unused-parameter)
+endif()
 
 add_subdirectory(tests/integration)
 add_subdirectory(tests/unit)

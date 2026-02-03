@@ -3,7 +3,6 @@
 
 namespace Mojo {
 namespace Utils {
-namespace Url {
 
 struct UrlParsed {
     std::string scheme;
@@ -23,6 +22,5 @@ public:
     static bool        is_image(const std::string& url);
 };
 
-}  // namespace Url
 }  // namespace Utils
 }  // namespace Mojo

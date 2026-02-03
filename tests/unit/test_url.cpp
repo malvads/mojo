@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "../../src/utils/url/url.hpp"
 
-using namespace Mojo::Utils::Url;
+using Mojo::Utils::Url;
 using namespace std::string_literals;
 
 TEST(UrlTest, BasicParsing) {

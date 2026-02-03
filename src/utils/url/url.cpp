@@ -6,7 +6,6 @@
 
 namespace Mojo {
 namespace Utils {
-namespace Url {
 
 UrlParsed Url::parse(const std::string& url) {
     UrlParsed parsed;
@@ -269,6 +268,5 @@ bool Url::is_image(const std::string& url) {
     return Mojo::Core::has_extension(url, Mojo::Core::get_image_extensions());
 }
 
-}  // namespace Url
 }  // namespace Utils
 }  // namespace Mojo
