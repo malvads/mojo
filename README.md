@@ -144,7 +144,7 @@ Crawl a blog and save all articles into a single directory for easy embedding.
 Mojo respects the [Robots Exclusion Protocol](https://developers.google.com/search/docs/crawling-indexing/robots/intro). To block Mojo from crawling your site, add the following to your `robots.txt`:
 
 ```robots.txt
-User-agent: Mojo/Crawler
+User-agent: Mojo-Crawler/1.0
 Disallow: /
 ```
 

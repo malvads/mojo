@@ -15,7 +15,7 @@ struct Constants {
 
     static constexpr int         MAX_RETRIES             = 3;
     static constexpr int         REQUEST_TIMEOUT_SECONDS = 3;
-    static constexpr const char* USER_AGENT              = "Mojo/Crawler";
+    static constexpr const char* USER_AGENT              = "Mojo-Crawler/1.0";
 
     static constexpr size_t DEFAULT_BLOOM_FILTER_SIZE   = 1000000;
     static constexpr int    DEFAULT_BLOOM_FILTER_HASHES = 7;
