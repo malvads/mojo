@@ -326,15 +326,15 @@ void Crawler::save_file(const std::string& url,
     }
 }
 
-std::optional<RobotsTxt> Crawler::get_cached_robots(const std::string& domain) {
+std::shared_ptr<RobotsTxt> Crawler::get_cached_robots(const std::string& domain) {
     std::lock_guard<std::mutex> lock(robots_mutex_);
     if (robots_cache_.count(domain)) {
         return robots_cache_.at(domain);
     }
-    return std::nullopt;
+    return nullptr;
 }
 
-void Crawler::cache_robots(const std::string& domain, const RobotsTxt& robots) {
+void Crawler::cache_robots(const std::string& domain, std::shared_ptr<RobotsTxt> robots) {
     std::lock_guard<std::mutex> lock(robots_mutex_);
     robots_cache_[domain] = robots;
 }
@@ -348,32 +348,30 @@ std::string Crawler::get_robots_url(const Mojo::Utils::UrlParsed& parsed) {
     return robots_url;
 }
 
-RobotsTxt Crawler::fetch_robots_txt(const std::string& robots_url, HttpClient& client) {
+std::shared_ptr<RobotsTxt> Crawler::fetch_robots_txt(const std::string& robots_url, HttpClient& client) {
     Logger::info("Fetching robots.txt: " + robots_url);
     Response res = client.get(robots_url);
 
     if (res.status_code >= 200 && res.status_code < 300) {
         Logger::info("Parsed robots.txt");
-        return RobotsTxt::parse(res.body);
+        return std::make_shared<RobotsTxt>(RobotsTxt::parse(res.body));
     }
     else {
         Logger::warn("Could not fetch robots.txt (Status: " + std::to_string(res.status_code)
                      + ")");
-        return RobotsTxt();
+        auto empty = std::make_shared<RobotsTxt>();
+        return empty;
     }
 }
 
-bool Crawler::ensure_robots_txt(const std::string& url, HttpClient& client) {
-    auto        parsed = Mojo::Utils::Url::parse(url);
-    std::string domain = parsed.host;
-
-    if (get_cached_robots(domain).has_value()) {
+bool Crawler::ensure_robots_txt(const Mojo::Utils::UrlParsed& parsed, HttpClient& client) {
+    if (get_cached_robots(parsed.host) != nullptr) {
         return true;
     }
 
     std::string robots_url = get_robots_url(parsed);
-    RobotsTxt   robots     = fetch_robots_txt(robots_url, client);
-    cache_robots(domain, robots);
+    auto        robots     = fetch_robots_txt(robots_url, client);
+    cache_robots(parsed.host, robots);
 
     return true;
 }
@@ -384,12 +382,14 @@ bool Crawler::is_url_allowed(const std::string& url, HttpClient& client) {
         return true;
     }
 
-    ensure_robots_txt(url, client);
+    ensure_robots_txt(parsed, client);
 
-    auto robots_opt = get_cached_robots(parsed.host);
-    if (robots_opt.has_value()) {
+    auto robots_ptr = get_cached_robots(parsed.host);
+    if (robots_ptr) {
         std::string path = parsed.path.empty() ? "/" : parsed.path;
-        if (!robots_opt->is_allowed(user_agent_, path)) {
+        // NOTE: Google's robots library re-parses content on every call.
+        // We use shared_ptr to avoid copying the body string, but parsing overhead remains.
+        if (!robots_ptr->is_allowed(user_agent_, path)) {
             Logger::info("Blocked by robots.txt: " + url);
             return false;
         }

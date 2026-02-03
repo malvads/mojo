@@ -86,16 +86,16 @@ private:
     int               proxy_threads_;
     std::string       user_agent_;
 
-    std::map<std::string, RobotsTxt> robots_cache_;
-    std::mutex                       robots_mutex_;
+    std::map<std::string, std::shared_ptr<RobotsTxt>> robots_cache_;
+    std::mutex                                        robots_mutex_;
 
-    bool ensure_robots_txt(const std::string& domain, HttpClient& client);
+    bool ensure_robots_txt(const Mojo::Utils::UrlParsed& parsed, HttpClient& client);
     bool is_url_allowed(const std::string& url, HttpClient& client);
 
-    std::optional<RobotsTxt> get_cached_robots(const std::string& domain);
-    void                     cache_robots(const std::string& domain, const RobotsTxt& robots);
-    std::string              get_robots_url(const Mojo::Utils::UrlParsed& parsed);
-    RobotsTxt                fetch_robots_txt(const std::string& robots_url, HttpClient& client);
+    std::shared_ptr<RobotsTxt> get_cached_robots(const std::string& domain);
+    void                       cache_robots(const std::string& domain, std::shared_ptr<RobotsTxt> robots);
+    std::string                get_robots_url(const Mojo::Utils::UrlParsed& parsed);
+    std::shared_ptr<RobotsTxt> fetch_robots_txt(const std::string& robots_url, HttpClient& client);
 
     void worker_loop();
     void process_task(HttpClient& client, std::string url, int depth);

@@ -2,7 +2,6 @@ add_library(mojo_utils
     text/converter.cpp
     text/html2md.cpp
     text/table.cpp
-    text/string_utils.cpp
     crypto/murmur3.cpp
     url/url.cpp
     http/parser.cpp

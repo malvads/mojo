@@ -65,11 +65,20 @@ FetchContent_Declare(
   URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-find_package(absl REQUIRED)
+find_package(absl QUIET)
+if(NOT absl_FOUND)
+  message(STATUS "Abseil not found via find_package, using FetchContent...")
+  FetchContent_Declare(
+    abseil-cpp
+    GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
+    GIT_TAG        20230802.1
+  )
+  FetchContent_MakeAvailable(abseil-cpp)
+endif()
 FetchContent_Declare(
   robotstxt
   GIT_REPOSITORY https://github.com/google/robotstxt.git
-  GIT_TAG        master
+  GIT_TAG        86d5836ba2d5a0b6b938ab49501be0e09d9c276c
 )
 
 FetchContent_MakeAvailable(googletest cpp-httplib)
