@@ -31,14 +31,15 @@ public:
     explicit ProxyPool(const std::vector<std::string>&   proxies,
                        int                               max_retries,
                        const std::map<std::string, int>& priorities);
+    virtual ~ProxyPool();
 
     std::optional<Proxy> get_proxy();
     void                 report(Proxy p, bool success);
     bool                 empty() const;
 
 private:
-    ProxyPriority                   determine_priority(const std::string&                url,
-                                                       const std::map<std::string, int>& priorities) const;
+    static ProxyPriority            determine_priority(const std::string&                url,
+                                                       const std::map<std::string, int>& priorities);
     std::vector<Proxy>              proxies_;
     mutable std::mutex              mutex_;
     int                             max_retries_;

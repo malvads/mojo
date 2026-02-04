@@ -7,86 +7,93 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  build-linux:
-    name: Linux (${{ matrix.container }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        container:
-          - "ubuntu:24.04"
-          - "ubuntu:22.04"
-          - "fedora:41"
-          - "debian:bookworm"
-    container: ${{ matrix.container }}
-    steps:
-    - name: Install Dependencies (Debian/Ubuntu)
-      if: contains(matrix.container, 'ubuntu') || contains(matrix.container, 'debian')
-      run: |
-        apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get install -y git cmake build-essential libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev libcli11-dev libcap-dev libuv1-dev libev-dev zlib1g-dev libboost-all-dev
-
-    - name: Install Dependencies (Fedora)
-      if: contains(matrix.container, 'fedora')
-      run: |
-        dnf -y update
-        dnf -y install git cmake make gcc-c++ libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel cli11-devel libcap-devel libuv-devel libev-devel zlib-devel boost-devel
-
-    - uses: actions/checkout@v4
-
-    - name: Configure CMake
-      run: |
-        mkdir build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DMOJO_STATIC_BUILD=ON
-
-    - name: Build
-      run: |
-        cmake --build build --config Release
-
-  build-macos:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: macOS 15 (Apple Silicon)
-            os: macos-15
-          - name: macOS 15 (Intel)
-            os: macos-15-intel
+  test-apple-silicon:
+    name: macOS 15 (Apple Silicon) - Tests, ASan, Cppcheck
+    runs-on: macos-15
     steps:
     - uses: actions/checkout@v4
     
     - name: Install Dependencies
       run: |
-        brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11 boost
+        brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11 boost cppcheck
 
-    - name: Configure CMake
+    - name: Run Cppcheck
+      run: |
+        cppcheck --enable=all --inline-suppr --quiet --suppress=missingIncludeSystem --suppress=unusedFunction --suppress=cstyleCast --suppress=missingInclude --suppress=useStlAlgorithm --suppress=functionStatic --suppress=checkersReport --suppress=normalCheckLevelMaxBranches --std=c++20 -DCPPCHECK --error-exitcode=1 src/
+
+    - name: Configure CMake (ASan enabled)
+      run: |
+        # Use Debug build for ASan and testing
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON
+
+    - name: Build
+      run: |
+        cmake --build build --config Debug
+
+    - name: Run Unit Tests
+      run: |
+        ./build/tests/unit/unit_tests
+
+    - name: Run Integration Tests
+      run: |
+        ./build/tests/integration/integration_tests
+
+  build-ubuntu:
+    name: Build - Ubuntu 22.04
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Dependencies
+      run: |
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y libcurl4-openssl-dev libgumbo-dev libwebsockets-dev nlohmann-json3-dev libyaml-cpp-dev build-essential cmake wget git file libcap-dev libuv1-dev libev-dev zlib1g-dev libboost-all-dev libcli11-dev
+    - name: Configure & Build
       run: |
         mkdir build && cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release
+        make -j$(nproc)
 
-    - name: Build
-      run: |
-        cmake --build build --config Release
-
-  build-windows:
-    name: Windows Server 2025
-    runs-on: windows-2025
+  build-fedora:
+    name: Build - Fedora 41
+    runs-on: ubuntu-latest
+    container: fedora:41
     steps:
     - uses: actions/checkout@v4
+    - name: Install Dependencies
+      run: |
+        dnf -y install git cmake make gcc-c++ wget libcurl-devel gumbo-parser-devel libwebsockets-devel nlohmann-json-devel yaml-cpp-devel cli11-devel libcap-devel libuv-devel libev-devel zlib-devel boost-devel
+    - name: Configure & Build
+      run: |
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+        make -j$(nproc)
 
+  build-macos-intel:
+    name: Build - macOS Intel
+    runs-on: macos-15-intel
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Dependencies
+      run: |
+        brew install curl gumbo-parser libwebsockets nlohmann-json yaml-cpp cli11 boost
+    - name: Configure & Build
+      run: |
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+        cmake --build . --config Release
+
+  build-windows:
+    name: Build - Windows x64
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
     - name: Install Dependencies
       run: |
         vcpkg install curl gumbo nlohmann-json libwebsockets yaml-cpp cli11 boost --triplet x64-windows
-        vcpkg integrate install
-
-    - name: Configure CMake
-      shell: bash
+    - name: Configure & Build
       run: |
         mkdir build && cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
-
-    - name: Build
-      run: |
-        cmake --build build --config Release
+        cmake --build . --config Release

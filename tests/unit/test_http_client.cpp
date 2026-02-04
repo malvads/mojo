@@ -1,33 +1,24 @@
+#include <boost/asio.hpp>
+#include <chrono>
 #include <gtest/gtest.h>
-#include <string>
-#include <vector>
-#include "../../src/network/http/curl_client.hpp"
+#include "../../src/network/http/beast_client.hpp"
 
 using namespace Mojo::Network::Http;
 
-TEST(HttpClientTest, RealisticUserAgents) {
-    CurlClient               client;
-    std::vector<std::string> uas = {
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15"};
-    for (const auto& ua : uas) {
-        client.set_user_agent(ua);
-        // Verified setting UA doesn't crash
-    }
+class HttpClientTest : public ::testing::Test {
+protected:
+    boost::asio::io_context ioc;
+};
+
+TEST_F(HttpClientTest, StateManagement) {
+    BeastClient client(ioc);
+    client.set_connect_timeout(std::chrono::milliseconds(2000));
+    client.set_proxy("socks5://localhost:1080");
 }
 
-TEST(HttpClientTest, StateManagement) {
-    CurlClient client;
-    client.set_timeout(10);
-    client.set_connect_timeout(5);
-    client.add_header("X-Custom", "Value");
-    client.clear_headers();
-    client.set_proxy("http://localhost:8080");
-}
-
-TEST(HttpClientTest, UARotation) {
-    CurlClient client;
-    for (int i = 0; i < 20; ++i) {
-        client.set_user_agent("Agent " + std::to_string(i));
-    }
+TEST_F(HttpClientTest, ProxyParsing) {
+    BeastClient client(ioc);
+    // Verified setting proxy doesn't crash
+    client.set_proxy("http://proxy.example.com:8080");
+    client.set_proxy("");
 }

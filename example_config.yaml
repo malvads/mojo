@@ -1,5 +1,7 @@
 max_depth: 2
-threads: 4
+threads: 4           # Number of IO threads
+virtual_threads: 16  # Max concurrent coroutines
+worker_threads: 4    # CPU/Disk worker threads
 output_dir: "./output"
 render_js: true
 headless: true

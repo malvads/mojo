@@ -9,6 +9,8 @@ struct UrlParsed {
     std::string host;
     std::string port;
     std::string path;
+    std::string query;
+    std::string fragment;
     std::string start_url;
 };
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/asio.hpp>
 #include <string>
 #include <vector>
 
@@ -37,8 +38,10 @@ class HttpClient {
 public:
     virtual ~HttpClient() = default;
 
-    virtual void     set_proxy(const std::string& proxy) = 0;
-    virtual Response get(const std::string& url)         = 0;
+    virtual void set_proxy(const std::string& proxy) = 0;
+    virtual void set_connect_timeout(std::chrono::milliseconds /*timeout*/){};
+    virtual boost::asio::awaitable<Response> get(const std::string& url)  = 0;
+    virtual boost::asio::awaitable<Response> head(const std::string& url) = 0;
 };
 
 }  // namespace Http

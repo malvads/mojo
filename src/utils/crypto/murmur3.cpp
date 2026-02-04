@@ -66,37 +66,51 @@ void MurmurHash3_x64_128(const void* key, int len, uint32_t seed, void* out) {
     switch (len & 15) {
         case 15:
             k2 ^= ((uint64_t)tail[14]) << 48;
+            [[fallthrough]];
         case 14:
             k2 ^= ((uint64_t)tail[13]) << 40;
+            [[fallthrough]];
         case 13:
             k2 ^= ((uint64_t)tail[12]) << 32;
+            [[fallthrough]];
         case 12:
             k2 ^= ((uint64_t)tail[11]) << 24;
+            [[fallthrough]];
         case 11:
             k2 ^= ((uint64_t)tail[10]) << 16;
+            [[fallthrough]];
         case 10:
             k2 ^= ((uint64_t)tail[9]) << 8;
+            [[fallthrough]];
         case 9:
             k2 ^= ((uint64_t)tail[8]) << 0;
             k2 *= c2;
             k2 = ROTL64(k2, 33);
             k2 *= c1;
             h2 ^= k2;
+            [[fallthrough]];
 
         case 8:
             k1 ^= ((uint64_t)tail[7]) << 56;
+            [[fallthrough]];
         case 7:
             k1 ^= ((uint64_t)tail[6]) << 48;
+            [[fallthrough]];
         case 6:
             k1 ^= ((uint64_t)tail[5]) << 40;
+            [[fallthrough]];
         case 5:
             k1 ^= ((uint64_t)tail[4]) << 32;
+            [[fallthrough]];
         case 4:
             k1 ^= ((uint64_t)tail[3]) << 24;
+            [[fallthrough]];
         case 3:
             k1 ^= ((uint64_t)tail[2]) << 16;
+            [[fallthrough]];
         case 2:
             k1 ^= ((uint64_t)tail[1]) << 8;
+            [[fallthrough]];
         case 1:
             k1 ^= ((uint64_t)tail[0]) << 0;
             k1 *= c1;
@@ -117,6 +131,6 @@ void MurmurHash3_x64_128(const void* key, int len, uint32_t seed, void* out) {
     h1 += h2;
     h2 += h1;
 
-    ((uint64_t*)out)[0] = h1;
-    ((uint64_t*)out)[1] = h2;
+    reinterpret_cast<uint64_t*>(out)[0] = h1;
+    reinterpret_cast<uint64_t*>(out)[1] = h2;
 }

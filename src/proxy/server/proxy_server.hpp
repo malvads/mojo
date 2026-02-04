@@ -11,7 +11,6 @@ namespace Mojo {
 namespace Proxy {
 namespace Server {
 
-// Forward declare or use from Pool
 using Pool::ProxyPool;
 
 class Connection;
@@ -33,7 +32,7 @@ public:
     }
 
 private:
-    void do_accept();
+    boost::asio::awaitable<void> do_accept();
 
     ProxyPool&  proxy_pool_;
     std::string bind_ip_;

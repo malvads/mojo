@@ -8,13 +8,21 @@ add_executable(unit_tests
     test_proxy_pool.cpp
     test_browser_launcher.cpp
     test_robotstxt.cpp
+    test_coroutines.cpp
+    test_proxy_server.cpp
+    test_storage.cpp
+    test_crawler.cpp
+    test_http_client.cpp
 )
 
 target_link_libraries(unit_tests
     PRIVATE
     mojo_browser
     mojo_proxy
+    mojo_storage
+    mojo_engine
     GTest::gtest_main
+    httplib::httplib
 )
 
 include(GoogleTest)

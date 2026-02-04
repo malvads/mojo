@@ -4,7 +4,8 @@
 using namespace Mojo::Browser::Launcher;
 
 TEST(LauncherTest, FindBrowser) {
-    std::string path = BrowserLauncher::find_browser();
+    auto path = BrowserLauncher::find_browser();
+    (void)path;
 #ifdef __APPLE__
     if (!path.empty()) {
         EXPECT_TRUE(path.find("Contents/MacOS") != std::string::npos

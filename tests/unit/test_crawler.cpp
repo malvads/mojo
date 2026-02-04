@@ -1,13 +1,24 @@
+#ifndef CPPCHECK
 #include <gtest/gtest.h>
+#else
+#define TEST(a, b) void a##_##b()
+#define TEST_F(a, b) void a##_##b()
+#define EXPECT_EQ(a, b)
+#define EXPECT_TRUE(a)
+#define EXPECT_FALSE(a)
+namespace testing { class Test {}; }
+using namespace testing;
+#endif
+
 #include "../../src/core/config/config.hpp"
 #include "../../src/engine/crawler/crawler.hpp"
 
-using namespace Mojo::Engine;
-using namespace Mojo::Core;
+namespace Mojo {
+namespace Engine {
 
 class CrawlerTest : public ::testing::Test {
 protected:
-    CrawlerConfig get_default_config() {
+    static CrawlerConfig get_default_config() {
         CrawlerConfig cfg;
         cfg.max_depth      = 2;
         cfg.threads        = 1;
@@ -58,3 +69,6 @@ TEST_F(CrawlerTest, AddUrlDomainCheck) {
     crawler.add_url("http://google.com/path", 0);
     EXPECT_EQ(crawler.frontier_.size(), 1);
 }
+
+}  // namespace Engine
+}  // namespace Mojo

@@ -20,7 +20,7 @@
   </a>
 </div>
 
-Mojo is a high-performance, multithreaded web crawler tailored for creating high-quality datasets for Large Language Models (LLMs) and AI training. Written in C++17, it rapidly fetches entire websites and converts them into clean, structured Markdown, making it the ideal tool for building knowledge bases and RAG (Retrieval-Augmented Generation) pipelines.
+Mojo is a high-performance, multithreaded web crawler tailored for creating high-quality datasets for Large Language Models (LLMs) and AI training. Written in modern C++20 with coroutines, it rapidly fetches entire websites and converts them into clean, structured Markdown, making it the ideal tool for building knowledge bases and RAG (Retrieval-Augmented Generation) pipelines.
 
 ## Installation
 
@@ -57,7 +57,7 @@ sudo mv mojo-macos-arm /usr/local/bin/mojo
 
 ## Key Features
 
-- **High Performance**: Built with C++17 and `libcurl`, Mojo utilizes a thread-pool architecture to maximize I/O throughput, significantly outperforming Python-based crawlers in high-volume tasks due to C++ native performance.
+- **High Performance**: Built with C++20 coroutines, Boost.Beast, and Boost.Asio, Mojo utilizes a thread-pool architecture with async I/O to maximize throughput, significantly outperforming Python-based crawlers in high-volume tasks due to C++ native performance.
 - **RAG-Ready Data Ingestion**: Automatically transforms noisy HTML into clean, token-efficient Markdown. Perfect for populating vector databases (Pinecone, Milvus, Weaviate) or providing context for LLMs (NotebookLM, Claude, Qwen, etc).
 - **Proxies**:
   - **Protocol Support**: Rotates between SOCKS4, SOCKS5, and HTTP proxies.
@@ -204,9 +204,9 @@ Inside the engine, Mojo manages proxies using a **Priority Selection Vector**, w
 ## Build & Packaging Instructions
 
 ### Prerequisites
-- C++17 Compiler (GCC, Clang, or MSVC)
+- C++20 Compiler (GCC 12+, Clang 14+, or MSVC 2022+)
 - CMake 3.10+
-- **libcurl** (Network)
+- **Boost** (Asio, Beast, System)
 - **libgumbo** (HTML Parsing)
 - **libwebsockets** (WebSocket Communication)
 - **yaml-cpp** (YAML Parsing)

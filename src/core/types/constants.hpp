@@ -8,13 +8,15 @@ namespace Mojo {
 namespace Core {
 
 struct Constants {
-    static constexpr int         DEFAULT_THREADS    = 4;
-    static constexpr int         DEFAULT_DEPTH      = 2;  // Changed from 0 to 2
-    static constexpr const char* DEFAULT_OUTPUT_DIR = "output";
-    static constexpr const char* VERSION            = "0.1.0";
+    static constexpr int         DEFAULT_THREADS         = 2;   // IO Threads
+    static constexpr int         DEFAULT_VIRTUAL_THREADS = 16;  // Coroutines
+    static constexpr int         DEFAULT_WORKER_THREADS  = 4;   // CPU/Disk Threads
+    static constexpr int         DEFAULT_DEPTH           = 2;
+    static constexpr const char* DEFAULT_OUTPUT_DIR      = "output";
+    static constexpr const char* VERSION                 = "0.1.0";
 
     static constexpr int         MAX_RETRIES             = 3;
-    static constexpr int         REQUEST_TIMEOUT_SECONDS = 3;
+    static constexpr int         REQUEST_TIMEOUT_SECONDS = 10;
     static constexpr const char* USER_AGENT              = "Mojo-Crawler/1.0";
 
     static constexpr size_t DEFAULT_BLOOM_FILTER_SIZE   = 1000000;

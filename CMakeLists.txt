@@ -10,7 +10,7 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
@@ -21,14 +21,29 @@ if(ENABLE_ASAN)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address,undefined")
 endif()
 
-find_package(Threads REQUIRED)
-find_package(CURL REQUIRED)
-find_package(Boost REQUIRED)
-find_package(nlohmann_json REQUIRED)
-include_directories(/opt/homebrew/include)
-link_directories(/opt/homebrew/lib)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS_EQUAL "13.3.0")
+        message(STATUS "GCC ${CMAKE_CXX_COMPILER_VERSION} detected - disabling coroutines due to known compiler bug")
+        add_compile_definitions(MOJO_DISABLE_COROUTINES)
+    else()
+        message(STATUS "GCC ${CMAKE_CXX_COMPILER_VERSION} detected - coroutines enabled")
+    endif()
+endif()
 
+
+find_package(Threads REQUIRED)
+find_package(Boost REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(nlohmann_json REQUIRED)
+
+find_path(GUMBO_INCLUDE_DIR gumbo.h PATHS /opt/homebrew/include /usr/local/include)
 find_library(GUMBO_LIBRARY gumbo PATHS /opt/homebrew/lib /usr/local/lib)
+
+find_path(CLI11_INCLUDE_DIR CLI/CLI.hpp PATHS /opt/homebrew/include /usr/local/include)
+
+find_path(WEBSOCKETS_INCLUDE_DIR libwebsockets.h PATHS /opt/homebrew/include /usr/local/include)
+find_library(WEBSOCKETS_LIBRARY websockets PATHS /opt/homebrew/lib /usr/local/lib)
+
 find_package(yaml-cpp QUIET)
 if (yaml-cpp_FOUND)
     if (TARGET yaml-cpp::yaml-cpp)
@@ -37,10 +52,9 @@ if (yaml-cpp_FOUND)
         set(YAML_CPP_LIBRARY yaml-cpp)
     endif()
 else()
+    find_path(YAML_CPP_INCLUDE_DIR yaml-cpp/yaml.h PATHS /opt/homebrew/include /usr/local/include)
     find_library(YAML_CPP_LIBRARY yaml-cpp PATHS /opt/homebrew/lib /usr/local/lib /usr/lib /usr/lib64)
 endif()
-
-find_library(WEBSOCKETS_LIBRARY websockets PATHS /opt/homebrew/lib /usr/local/lib)
 
 if(NOT GUMBO_LIBRARY)
     message(WARNING "Gumbo library not found!")
@@ -50,16 +64,13 @@ if(NOT YAML_CPP_LIBRARY)
     message(WARNING "yaml-cpp library not found!")
 endif()
 
-if(NOT WEBSOCKETS_LIBRARY)
-    message(WARNING "websockets library not found!")
-endif()
-
 add_subdirectory(src/core)
 add_subdirectory(src/utils)
 add_subdirectory(src/network)
 add_subdirectory(src/proxy)
 add_subdirectory(src/browser)
 add_subdirectory(src/engine)
+add_subdirectory(src/storage)
 
 enable_testing()
 include(FetchContent)

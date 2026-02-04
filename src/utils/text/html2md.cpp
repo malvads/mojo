@@ -72,7 +72,7 @@ string toLower(const string& str) {
 
 namespace html2md {
 
-Converter::Converter(const string* html, Options* options) : html_(*html) {
+Converter::Converter(const string* html, const Options* options) : html_(*html) {
     if (options)
         option = *options;
 

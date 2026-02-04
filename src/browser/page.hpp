@@ -1,4 +1,5 @@
 #pragma once
+#include <boost/asio/awaitable.hpp>
 #include <functional>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -10,11 +11,11 @@ class Page {
 public:
     virtual ~Page() = default;
 
-    virtual bool        goto_url(const std::string& url) = 0;
-    virtual std::string content()                        = 0;
-    virtual void        close()                          = 0;
+    virtual boost::asio::awaitable<bool>        goto_url(const std::string& url) = 0;
+    virtual boost::asio::awaitable<std::string> content()                        = 0;
+    virtual boost::asio::awaitable<void>        close()                          = 0;
 
-    virtual std::string evaluate(const std::string& script) = 0;
+    virtual boost::asio::awaitable<std::string> evaluate(const std::string& script) = 0;
 };
 
 }  // namespace Mojo
