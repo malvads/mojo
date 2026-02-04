@@ -23,6 +23,17 @@ UrlParsed Url::parse(const std::string& url) {
     size_t first_q     = sv.find('?');
     size_t first_h     = sv.find('#');
     bool   has_scheme  = (colon != std::string_view::npos);
+    if (has_scheme) {
+        std::string potential_scheme = std::string(sv.substr(0, colon));
+        // Scheme must be alphanumeric to avoid mistaking IP:PORT for SCHEME:URL
+        for (char c : potential_scheme) {
+            if (!std::isalnum(static_cast<unsigned char>(c)) && c != '+' && c != '-' && c != '.') {
+                has_scheme = false;
+                break;
+            }
+        }
+    }
+
     if (has_scheme && first_slash != std::string_view::npos && colon > first_slash)
         has_scheme = false;
     if (has_scheme && first_q != std::string_view::npos && colon > first_q)
@@ -88,6 +99,15 @@ UrlParsed Url::parse(const std::string& url) {
         path_end = std::min(path_end, h_pos);
 
     parsed.path = std::string(sv.substr(0, path_end));
+
+    if (q_pos != std::string_view::npos) {
+        size_t q_end = (h_pos != std::string_view::npos && h_pos > q_pos) ? h_pos : sv.length();
+        parsed.query = std::string(sv.substr(q_pos + 1, q_end - (q_pos + 1)));
+    }
+
+    if (h_pos != std::string_view::npos) {
+        parsed.fragment = std::string(sv.substr(h_pos + 1));
+    }
 
     if (parsed.path.empty())
         parsed.path = "/";

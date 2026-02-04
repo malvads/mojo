@@ -1,4 +1,7 @@
 #include "proxy_server.hpp"
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
+#include <boost/asio/use_awaitable.hpp>
 #include "../../core/logger/logger.hpp"
 #include "connection.hpp"
 
@@ -36,10 +39,10 @@ void ProxyServer::start() {
         acceptor_.listen();
 
         port_ = acceptor_.local_endpoint().port();
-        Logger::info("ProxyServer: Async (Asio) Listening on " + bind_ip_ + ":"
+        Logger::info("ProxyServer: Async (Asio/Coroutines) Listening on " + bind_ip_ + ":"
                      + std::to_string(port_));
 
-        do_accept();
+        boost::asio::co_spawn(io_context_, do_accept(), boost::asio::detached);
 
         for (int i = 0; i < thread_count_; ++i) {
             threads_.emplace_back([this]() { io_context_.run(); });
@@ -64,18 +67,15 @@ int ProxyServer::get_port() const {
     return port_;
 }
 
-void ProxyServer::do_accept() {
-    acceptor_.async_accept(
-        [this](boost::system::error_code ec, boost::asio::ip::tcp::socket socket) {
-            if (!ec) {
-                std::make_shared<Connection>(std::move(socket), this)->start();
-            }
-            else {
-                Logger::error("ProxyServer: Accept error: " + ec.message());
-            }
-
-            do_accept();
-        });
+boost::asio::awaitable<void> ProxyServer::do_accept() {
+    while (true) {
+        try {
+            auto socket = co_await acceptor_.async_accept(boost::asio::use_awaitable);
+            std::make_shared<Connection>(std::move(socket), this)->start();
+        } catch (const std::exception& e) {
+            Logger::error("ProxyServer: Accept error: " + std::string(e.what()));
+        }
+    }
 }
 
 }  // namespace Server

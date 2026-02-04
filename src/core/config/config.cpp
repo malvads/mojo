@@ -16,6 +16,10 @@ void load_yaml(Config& config, const std::string& path) {
             config.depth = yaml["max_depth"].as<int>();
         if (yaml["threads"])
             config.threads = yaml["threads"].as<int>();
+        if (yaml["virtual_threads"])
+            config.virtual_threads = yaml["virtual_threads"].as<int>();
+        if (yaml["worker_threads"])
+            config.worker_threads = yaml["worker_threads"].as<int>();
         if (yaml["output"])
             config.output_dir = yaml["output"].as<std::string>();
         if (yaml["output_dir"])
@@ -30,6 +34,8 @@ void load_yaml(Config& config, const std::string& path) {
             config.browser_path = yaml["browser_path"].as<std::string>();
         if (yaml["proxy_retries"])
             config.proxy_retries = yaml["proxy_retries"].as<int>();
+        if (yaml["proxy_connect_timeout"])
+            config.proxy_connect_timeout = yaml["proxy_connect_timeout"].as<int>();
         if (yaml["proxy_bind_ip"])
             config.proxy_bind_ip = yaml["proxy_bind_ip"].as<std::string>();
         if (yaml["proxy_bind_port"])
@@ -45,8 +51,12 @@ void load_yaml(Config& config, const std::string& path) {
         }
 
         if (yaml["proxy_list"]) {
-            std::ifstream file(yaml["proxy_list"].as<std::string>());
-            std::string   line;
+            std::string   plist = yaml["proxy_list"].as<std::string>();
+            std::ifstream file(plist);
+            if (!file.is_open()) {
+                throw std::runtime_error("Could not open proxy list file: " + plist);
+            }
+            std::string line;
             while (std::getline(file, line))
                 if (!line.empty())
                     config.proxies.push_back(line);
@@ -71,11 +81,16 @@ Config Config::parse(int argc, char* argv[]) {
     std::string single_proxy;
 
     app.add_option("-d,--depth", config.depth, "Crawling depth");
-    app.add_option("-t,--threads", config.threads, "Number of threads");
+    app.add_option("-t,--threads", config.threads, "Number of IO threads");
+    app.add_option("--virtual-threads", config.virtual_threads, "Max concurrent coroutines");
+    app.add_option("--worker-threads", config.worker_threads, "Number of CPU/Disk worker threads");
     app.add_option("-o,--output", config.output_dir, "Output directory");
     app.add_option("-p,--proxy", single_proxy, "Single proxy URL");
     app.add_option("--proxy-list", proxy_list_path, "File containing list of proxies");
     app.add_option("--proxy-retries", config.proxy_retries, "Max failures before removing a proxy");
+    app.add_option("--proxy-connect-timeout",
+                   config.proxy_connect_timeout,
+                   "Proxy Connect Handshake Timeout (ms)");
     app.add_option("--proxy-threads", config.proxy_threads, "Threads for proxy gateway");
     app.add_option("--proxy-bind-ip", config.proxy_bind_ip, "Proxy Server bind IP");
     app.add_option("--proxy-bind-port", config.proxy_bind_port, "Proxy Server bind Port");
@@ -121,7 +136,11 @@ Config Config::parse(int argc, char* argv[]) {
         config.proxies.push_back(single_proxy);
     if (!proxy_list_path.empty()) {
         std::ifstream file(proxy_list_path);
-        std::string   line;
+        if (!file.is_open()) {
+            std::cerr << "Error: Could not open proxy list file: " << proxy_list_path << std::endl;
+            exit(1);
+        }
+        std::string line;
         while (std::getline(file, line)) {
             // Trim whitespace
             size_t f = line.find_first_not_of(" \t\r\n");

@@ -8,8 +8,10 @@ namespace Mojo {
 namespace Core {
 
 struct Config {
-    int                        depth   = Constants::DEFAULT_DEPTH;
-    int                        threads = Constants::DEFAULT_THREADS;
+    int                        depth           = Constants::DEFAULT_DEPTH;
+    int                        threads         = Constants::DEFAULT_THREADS;
+    int                        virtual_threads = Constants::DEFAULT_VIRTUAL_THREADS;
+    int                        worker_threads  = Constants::DEFAULT_WORKER_THREADS;
     std::vector<std::string>   proxies;
     std::vector<std::string>   urls;
     std::string                output_dir = Constants::DEFAULT_OUTPUT_DIR;
@@ -19,7 +21,8 @@ struct Config {
     bool                       tree_structure   = true;
     bool                       render_js        = false;
     std::string                browser_path;
-    bool                       headless = true;
+    bool                       headless              = true;
+    int                        proxy_connect_timeout = 5000;  // milliseconds
 
     std::string proxy_bind_ip   = "127.0.0.1";
     int         proxy_bind_port = 0;  // 0 = Random

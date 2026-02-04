@@ -6,42 +6,44 @@ namespace Browser {
 
 class PageImpl : public Page {
 public:
-    PageImpl(std::shared_ptr<Mojo::Browser::CDP::CDPClient> cdp) : cdp_(cdp) {
+    explicit PageImpl(std::shared_ptr<Mojo::Browser::CDP::CDPClient> cdp) : cdp_(cdp) {
     }
 
-    bool goto_url(const std::string& url) override {
-        return cdp_->navigate(url);
+    boost::asio::awaitable<bool> goto_url(const std::string& url) override {
+        co_return co_await cdp_->navigate(url);
     }
 
-    std::string content() override {
-        return cdp_->evaluate("document.documentElement.outerHTML");
+    boost::asio::awaitable<std::string> content() override {
+        co_return co_await cdp_->evaluate("document.documentElement.outerHTML");
     }
 
-    void close() override {
-        // Optional: close CDP connection if needed
+    boost::asio::awaitable<void> close() override {
+        co_await cdp_->close();
     }
 
-    std::string evaluate(const std::string& script) override {
-        return cdp_->evaluate(script);
+    boost::asio::awaitable<std::string> evaluate(const std::string& script) override {
+        co_return co_await cdp_->evaluate(script);
     }
 
 private:
     std::shared_ptr<Mojo::Browser::CDP::CDPClient> cdp_;
 };
 
-Browser::Browser(const std::string& host, int port) : host_(host), port_(port) {
+Browser::Browser(boost::asio::io_context& ioc, const std::string& host, int port)
+    : ioc_(ioc), host_(host), port_(port) {
 }
 
-std::shared_ptr<Browser> Browser::connect(const std::string& host, int port) {
-    return std::shared_ptr<Browser>(new Browser(host, port));
+std::shared_ptr<Browser>
+Browser::connect(boost::asio::io_context& ioc, const std::string& host, int port) {
+    return std::shared_ptr<Browser>(new Browser(ioc, host, port));
 }
 
-std::shared_ptr<Page> Browser::new_page() {
-    auto cdp = std::make_shared<Mojo::Browser::CDP::CDPClient>(host_, port_);
-    if (!cdp->connect()) {
-        return nullptr;
+boost::asio::awaitable<std::shared_ptr<Page>> Browser::new_page() {
+    auto cdp = std::make_shared<Mojo::Browser::CDP::CDPClient>(ioc_, host_, port_);
+    if (!co_await cdp->connect()) {
+        co_return nullptr;
     }
-    return std::make_shared<PageImpl>(cdp);
+    co_return std::make_shared<PageImpl>(cdp);
 }
 
 void Browser::close() {

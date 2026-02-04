@@ -121,10 +121,10 @@ TEST(ProxyPoolTest, ExhaustionAndRecoverySim) {
     ProxyPool                  pool(proxies, 1, priorities);
 
     auto p = pool.get_proxy();
-    if (p)
+    if (p) {
         pool.report(*p, false);
-    if (p)
         pool.report(*p, false);  // Second fail should remove it
+    }
 
     EXPECT_FALSE(pool.get_proxy().has_value());
     EXPECT_TRUE(pool.empty());

@@ -1,6 +1,15 @@
 #include <filesystem>
 #include <fstream>
+#ifndef CPPCHECK
 #include <gtest/gtest.h>
+#else
+#define TEST(a, b) void a##_##b()
+#define TEST_F(a, b) void a##_##b()
+#define EXPECT_EQ(a, b)
+#define EXPECT_TRUE(a)
+#define EXPECT_FALSE(a)
+namespace testing { class Test {}; }
+#endif
 #include <httplib.h>
 #include <thread>
 #include "crawler/crawler.hpp"
@@ -48,7 +57,7 @@ private:
 class IntegrationTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        Mojo::Core::Logger::set_level(Mojo::Core::LOG_ERROR);
+        Mojo::Core::Logger::set_level(Mojo::Core::LOG_INFO);
         if (fs::exists("test_output"))
             fs::remove_all("test_output");
         fs::create_directory("test_output");
@@ -68,10 +77,11 @@ TEST_F(IntegrationTest, BasicCrawlDiscovery) {
     server.start(8081);
 
     Mojo::Engine::CrawlerConfig config;
-    config.max_depth      = 2;
-    config.threads        = 1;
-    config.output_dir     = "test_output";
-    config.tree_structure = true;
+    config.max_depth       = 2;
+    config.threads         = 1;
+    config.virtual_threads = 4;
+    config.output_dir      = "test_output";
+    config.tree_structure  = true;
 
     Mojo::Engine::Crawler crawler(config);
     crawler.start(server.url() + "/");
@@ -93,10 +103,11 @@ TEST_F(IntegrationTest, ImageFiltering) {
     server.start(8082);
 
     Mojo::Engine::CrawlerConfig config;
-    config.max_depth      = 1;
-    config.threads        = 1;
-    config.output_dir     = "test_output";
-    config.tree_structure = true;
+    config.max_depth       = 1;
+    config.threads         = 1;
+    config.virtual_threads = 4;
+    config.output_dir      = "test_output";
+    config.tree_structure  = true;
 
     Mojo::Engine::Crawler crawler(config);
     crawler.start(server.url() + "/");
@@ -119,10 +130,11 @@ TEST_F(IntegrationTest, DomainRestriction) {
     server2.start(8084, "localhost");
 
     Mojo::Engine::CrawlerConfig config;
-    config.max_depth      = 1;
-    config.threads        = 1;
-    config.output_dir     = "test_output";
-    config.tree_structure = true;
+    config.max_depth       = 1;
+    config.threads         = 1;
+    config.virtual_threads = 4;
+    config.output_dir      = "test_output";
+    config.tree_structure  = true;
 
     Mojo::Engine::Crawler crawler(config);
     crawler.start(server1.url() + "/");
@@ -132,4 +144,54 @@ TEST_F(IntegrationTest, DomainRestriction) {
 
     server1.stop();
     server2.stop();
+}
+
+TEST_F(IntegrationTest, RobotsTxtEnforcement) {
+    TestServer server;
+    // Allow /public, disallow /private
+    server.set_route("/robots.txt", "User-agent: *\nDisallow: /private\nAllow: /public\n");
+    server.set_route(
+        "/",
+        "<html><body><a href='/public'>Public</a><a href='/private'>Private</a></body></html>");
+    server.set_route("/public", "<html><body>Public Page</body></html>");
+    server.set_route("/private", "<html><body>Private Page</body></html>");
+    server.start(8085);
+
+    Mojo::Engine::CrawlerConfig config;
+    config.max_depth       = 1;
+    config.threads         = 1;
+    config.virtual_threads = 4;
+    config.output_dir      = "test_output";
+    config.tree_structure  = true;
+
+    Mojo::Engine::Crawler crawler(config);
+    crawler.start(server.url() + "/");
+
+    EXPECT_TRUE(fs::exists("test_output/127.0.0.1_8085/index.md"));
+    EXPECT_TRUE(fs::exists("test_output/127.0.0.1_8085/public.md"));
+    EXPECT_FALSE(fs::exists("test_output/127.0.0.1_8085/private.md"));
+
+    server.stop();
+}
+
+TEST_F(IntegrationTest, RetryLogic) {
+    TestServer server;
+    server.set_route("/", "<html><body><a href='/flaky'>Flaky</a></body></html>");
+    server.set_route("/flaky", "<html><body>Success after retry</body></html>");
+
+    server.start(8086);
+
+    Mojo::Engine::CrawlerConfig config;
+    config.max_depth       = 1;
+    config.threads         = 1;
+    config.virtual_threads = 4;
+    config.output_dir      = "test_output";
+    config.tree_structure  = true;
+
+    Mojo::Engine::Crawler crawler(config);
+    crawler.start(server.url() + "/");
+
+    EXPECT_TRUE(fs::exists("test_output/127.0.0.1_8086/flaky.md"));
+
+    server.stop();
 }

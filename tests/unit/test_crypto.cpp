@@ -97,6 +97,34 @@ TEST(BloomFilterTest, FalsePositiveRateValidation) {
     EXPECT_LT(fp, 100);  // 100/1000 = 10% safety margin for small sample
 }
 
+TEST(BloomFilterTest, MonitoringMethods) {
+    BloomFilter filter(1000, 5);
+
+    EXPECT_EQ(filter.bit_count(), 1000);
+    EXPECT_EQ(filter.items_added(), 0);
+    EXPECT_EQ(filter.set_bits(), 0);
+    EXPECT_DOUBLE_EQ(filter.estimated_false_positive_rate(), 0.0);
+
+    // Add some items
+    for (int i = 0; i < 100; ++i) {
+        filter.add("item_" + std::to_string(i));
+    }
+
+    EXPECT_EQ(filter.items_added(), 100);
+    EXPECT_GT(filter.set_bits(), 0);
+    EXPECT_LT(filter.set_bits(), 1000);  // Not all bits should be set
+
+    // FPR estimate should be reasonable (between 0 and 1)
+    double fpr = filter.estimated_false_positive_rate();
+    EXPECT_GE(fpr, 0.0);
+    EXPECT_LT(fpr, 1.0);
+
+    // Clear should reset counters
+    filter.clear();
+    EXPECT_EQ(filter.items_added(), 0);
+    EXPECT_EQ(filter.set_bits(), 0);
+}
+
 TEST(Murmur3Test, Consistency) {
     std::string data = "consistent data";
     uint64_t    h1[2], h2[2];

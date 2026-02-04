@@ -12,7 +12,7 @@ namespace Mojo {
 
 class CDPPage : public Page, public std::enable_shared_from_this<CDPPage> {
 public:
-    CDPPage(std::unique_ptr<CDPClient> client) : client_(std::move(client)) {
+    explicit CDPPage(std::unique_ptr<CDPClient> client) : client_(std::move(client)) {
     }
 
     bool goto_url(const std::string& url) override {

@@ -16,7 +16,8 @@ public:
 
     static RobotsTxt parse(const std::string& content);
 
-    bool is_allowed(const std::string& user_agent, const std::string& path) const;
+    bool   is_allowed(const std::string& user_agent, const std::string& path) const;
+    double get_crawl_delay(const std::string& user_agent) const;
 
 private:
     std::string content_;

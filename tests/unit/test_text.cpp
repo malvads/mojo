@@ -67,6 +67,7 @@ TEST(TextTest, MarkdownConversionComplex) {
 TEST(TextTest, MalformedHtml) {
     std::string html  = "<div><a>Unclosed tag<p>nested";
     auto        links = Converter::extract_links(html);
+    (void)links;
     // Gumbo is robust, should still find the <a> if it has href
 
     std::string md = Converter::to_markdown("<<<<>>>>");

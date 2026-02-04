@@ -209,7 +209,7 @@ public:
      * You can use appendToMd() to append something to the beginning of the
      * generated output.
      */
-    explicit inline Converter(const std::string& html, struct Options* options = nullptr) {
+    explicit inline Converter(const std::string& html, const struct Options* options = nullptr) {
         *this = Converter(&html, options);
     }
 
@@ -594,7 +594,7 @@ private:
 
     std::unordered_map<std::string, std::shared_ptr<Tag>> tags_;
 
-    explicit Converter(const std::string* html, struct Options* options);
+    explicit Converter(const std::string* html, const struct Options* options);
 
     void CleanUpMarkdown();
 

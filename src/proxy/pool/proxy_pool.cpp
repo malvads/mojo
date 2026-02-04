@@ -23,8 +23,11 @@ ProxyPool::ProxyPool(const std::vector<std::string>&   proxies,
     }
 }
 
+ProxyPool::~ProxyPool() {
+}
+
 ProxyPriority ProxyPool::determine_priority(const std::string&                url,
-                                            const std::map<std::string, int>& priorities) const {
+                                            const std::map<std::string, int>& priorities) {
     if (url.find("socks5") != std::string::npos) {
         return static_cast<ProxyPriority>(priorities.at("socks5"));
     }

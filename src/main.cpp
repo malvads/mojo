@@ -1,4 +1,3 @@
-#include <curl/curl.h>
 #include <iostream>
 #include "crawler/crawler.hpp"
 #include "config/config.hpp"
@@ -8,12 +7,12 @@
 namespace {
 
 void run_crawler(const Mojo::Core::Config& config) {
-    curl_global_init(CURL_GLOBAL_ALL);
-
     {
         Mojo::Engine::CrawlerConfig crawler_config;
         crawler_config.max_depth        = config.depth;
         crawler_config.threads          = config.threads;
+        crawler_config.virtual_threads  = config.virtual_threads;
+        crawler_config.worker_threads   = config.worker_threads;
         crawler_config.output_dir       = config.output_dir;
         crawler_config.tree_structure   = config.tree_structure;
         crawler_config.render_js        = config.render_js;
@@ -34,8 +33,6 @@ void run_crawler(const Mojo::Core::Config& config) {
             crawler.start(url);
         }
     }
-
-    curl_global_cleanup();
 }
 
 }  // namespace

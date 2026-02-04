@@ -162,6 +162,7 @@ TEST(UrlTest, BinaryAndExtreme) {
     // Null byte in path
     std::string null_url = "http://example.com/path\0with\0null"s;
     auto        p        = Url::parse(null_url);
+    (void)p;
 
     // Extreme length (100KB)
     std::string long_url = "http://example.com/" + std::string(1024 * 100, 'a');

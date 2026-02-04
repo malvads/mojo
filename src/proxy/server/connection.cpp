@@ -1,5 +1,14 @@
 #include "connection.hpp"
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/use_awaitable.hpp>
+#include <boost/asio/write.hpp>
+#include "../../binary/reader.hpp"
+#include "../../binary/writer.hpp"
 #include "../../core/logger/logger.hpp"
+#include "../../network/proxy/socks_handshake.hpp"
+#include "../../utils/url/url.hpp"
 #include "proxy_server.hpp"
 
 namespace Mojo {
@@ -23,46 +32,137 @@ Connection::~Connection() {
 }
 
 void Connection::start() {
-    do_read_client();
+    boost::asio::co_spawn(
+        server_->io_context(),
+        [self = shared_from_this()]() { return self->start_impl(); },
+        boost::asio::detached);
 }
 
 void Connection::close() {
     boost::system::error_code ec;
-    client_socket_.close(ec);
-    upstream_socket_.close(ec);
+    if (client_socket_.is_open())
+        client_socket_.close(ec);
+    if (upstream_socket_.is_open())
+        upstream_socket_.close(ec);
 }
 
-void Connection::do_read_client() {
-    client_socket_.async_read_some(client_buffer_.prepare(8192),
-                                   std::bind(&Connection::on_client_read,
-                                             shared_from_this(),
-                                             std::placeholders::_1,
-                                             std::placeholders::_2));
-}
+boost::asio::awaitable<void> Connection::start_impl() {
+    try {
+        std::size_t n = co_await client_socket_.async_read_some(client_buffer_.prepare(8192),
+                                                                boost::asio::use_awaitable);
+        client_buffer_.commit(n);
 
-void Connection::on_client_read(boost::system::error_code ec, std::size_t length) {
-    if (ec) {
+        auto        bufs = client_buffer_.data();
+        std::string data(boost::asio::buffers_begin(bufs),
+                         boost::asio::buffers_begin(bufs) + client_buffer_.size());
+        initial_data_ = data;
+
+        if (!parse_target_request(data)) {
+            close();
+            co_return;
+        }
+
+        co_await do_resolve();
+
+    } catch (const std::exception& e) {
         close();
-        return;
+    }
+}
+
+boost::asio::awaitable<void> Connection::do_resolve() {
+    current_proxy_ = server_->proxy_pool().get_proxy();
+    if (!current_proxy_) {
+        close();
+        co_return;
     }
 
-    client_buffer_.commit(length);
+    auto        url_parsed = Mojo::Utils::Url::parse(current_proxy_->url);
+    std::string p_host     = url_parsed.host;
+    std::string p_port     = url_parsed.port.empty() ? "80" : url_parsed.port;
 
-    auto        bufs = client_buffer_.data();
-    std::string data(boost::asio::buffers_begin(bufs),
-                     boost::asio::buffers_begin(bufs) + client_buffer_.size());
+    try {
+        auto results = co_await resolver_.async_resolve(p_host, p_port, boost::asio::use_awaitable);
+        co_await                do_connect_upstream(results);
+    } catch (...) {
+        server_->proxy_pool().report(*current_proxy_, false);
+        throw;
+    }
+}
 
-    initial_data_ = data;
+boost::asio::awaitable<void>
+Connection::do_connect_upstream(const boost::asio::ip::tcp::resolver::results_type& endpoints) {
+    try {
+        co_await boost::asio::async_connect(
+            upstream_socket_, endpoints, boost::asio::use_awaitable);
+    } catch (...) {
+        server_->proxy_pool().report(*current_proxy_, false);
+        throw;
+    }
 
-    if (parse_target(data)) {
-        do_resolve();
+    if (current_proxy_->url.find("socks5") != std::string::npos) {
+        co_await do_socks5_handshake();
     }
     else {
+        co_await boost::asio::async_write(
+            upstream_socket_, boost::asio::buffer(initial_data_), boost::asio::use_awaitable);
+        co_await start_tunnel();
+    }
+}
+
+boost::asio::awaitable<void> Connection::do_socks5_handshake() {
+    co_await Mojo::Network::Proxy::SocksHandshake::perform_socks5(
+        upstream_socket_, target_.host, std::to_string(target_.port));
+
+    if (target_.is_connect) {
+        std::string msg = "HTTP/1.1 200 Connection Established\r\n\r\n";
+        co_await    boost::asio::async_write(
+            client_socket_, boost::asio::buffer(msg), boost::asio::use_awaitable);
+    }
+    else {
+        co_await boost::asio::async_write(
+            upstream_socket_, boost::asio::buffer(initial_data_), boost::asio::use_awaitable);
+    }
+    co_await start_tunnel();
+}
+
+boost::asio::awaitable<void> Connection::start_tunnel() {
+    server_->proxy_pool().report(*current_proxy_, true);
+
+    boost::asio::co_spawn(
+        server_->io_context(),
+        [self = shared_from_this()]() {
+            return self->transfer(
+                self->client_socket_, self->upstream_socket_, self->tunnel_buffer_c2u_);
+        },
+        boost::asio::detached);
+
+    boost::asio::co_spawn(
+        server_->io_context(),
+        [self = shared_from_this()]() {
+            return self->transfer(
+                self->upstream_socket_, self->client_socket_, self->tunnel_buffer_u2c_);
+        },
+        boost::asio::detached);
+
+    co_return;
+}
+
+boost::asio::awaitable<void> Connection::transfer(boost::asio::ip::tcp::socket& from,
+                                                  boost::asio::ip::tcp::socket& to,
+                                                  std::vector<char>&            buffer) {
+    try {
+        while (true) {
+            std::size_t n = co_await from.async_read_some(boost::asio::buffer(buffer),
+                                                          boost::asio::use_awaitable);
+            co_await                 boost::asio::async_write(
+                to, boost::asio::buffer(buffer, n), boost::asio::use_awaitable);
+        }
+    } catch (...) {
         close();
     }
 }
 
-bool Connection::parse_target(const std::string& data) {
+bool Connection::parse_target_request(const std::string& data) {
     if (data.rfind("CONNECT", 0) == 0) {
         target_.is_connect = true;
         auto sp1           = data.find(' ');
@@ -115,255 +215,6 @@ bool Connection::parse_target(const std::string& data) {
         }
         return true;
     }
-}
-
-void Connection::do_resolve() {
-    current_proxy_ = server_->proxy_pool().get_proxy();
-    if (!current_proxy_) {
-        close();
-        return;
-    }
-
-    std::string p_host;
-    std::string p_port = "80";
-
-    std::string url        = current_proxy_->url;
-    auto        scheme_end = url.find("://");
-    if (scheme_end != std::string::npos)
-        url = url.substr(scheme_end + 3);
-    auto at = url.find('@');
-    if (at != std::string::npos)
-        url = url.substr(at + 1);
-    auto colon = url.find(':');
-    if (colon != std::string::npos) {
-        p_host = url.substr(0, colon);
-        p_port = url.substr(colon + 1);
-    }
-    else {
-        p_host = url;
-    }
-
-    resolver_.async_resolve(p_host,
-                            p_port,
-                            std::bind(&Connection::on_resolve,
-                                      shared_from_this(),
-                                      std::placeholders::_1,
-                                      std::placeholders::_2));
-}
-
-void Connection::on_resolve(boost::system::error_code                    ec,
-                            boost::asio::ip::tcp::resolver::results_type results) {
-    if (!ec) {
-        do_connect_upstream(results);
-    }
-    else {
-        server_->proxy_pool().report(*current_proxy_, false);
-        close();
-    }
-}
-
-void Connection::do_connect_upstream(
-    const boost::asio::ip::tcp::resolver::results_type& endpoints) {
-    boost::asio::async_connect(upstream_socket_,
-                               endpoints,
-                               std::bind(&Connection::on_upstream_connect,
-                                         shared_from_this(),
-                                         std::placeholders::_1,
-                                         std::placeholders::_2));
-}
-
-void Connection::on_upstream_connect(boost::system::error_code ec,
-                                     const boost::asio::ip::tcp::endpoint&) {
-    if (ec) {
-        server_->proxy_pool().report(*current_proxy_, false);
-        close();
-        return;
-    }
-
-    if (current_proxy_->url.find("socks5") != std::string::npos) {
-        do_socks5_handshake();
-    }
-    else {
-        boost::asio::async_write(upstream_socket_,
-                                 boost::asio::buffer(initial_data_),
-                                 std::bind(&Connection::on_tunnel_write_upstream,
-                                           shared_from_this(),
-                                           std::placeholders::_1,
-                                           std::placeholders::_2));
-    }
-}
-
-void Connection::do_socks5_handshake() {
-    auto buf = std::make_shared<std::vector<char>>(std::initializer_list<char>{0x05, 0x01, 0x00});
-
-    boost::asio::async_write(upstream_socket_,
-                             boost::asio::buffer(*buf),
-                             std::bind(&Connection::on_socks5_greeting_sent,
-                                       shared_from_this(),
-                                       std::placeholders::_1,
-                                       std::placeholders::_2));
-}
-
-void Connection::on_socks5_greeting_sent(boost::system::error_code ec, std::size_t) {
-    if (ec) {
-        close();
-        return;
-    }
-
-    upstream_buffer_.consume(upstream_buffer_.size());  // Clear
-    boost::asio::async_read(upstream_socket_,
-                            upstream_buffer_.prepare(2),
-                            std::bind(&Connection::on_socks5_greeting_read,
-                                      shared_from_this(),
-                                      std::placeholders::_1,
-                                      std::placeholders::_2));
-}
-
-void Connection::on_socks5_greeting_read(boost::system::error_code ec, std::size_t length) {
-    if (ec) {
-        close();
-        return;
-    }
-    upstream_buffer_.commit(length);
-
-    upstream_buffer_.consume(length);
-
-    auto req = std::make_shared<std::vector<char>>();
-    req->push_back(0x05);
-    req->push_back(0x01);
-    req->push_back(0x00);
-    req->push_back(0x03);
-    req->push_back((char)target_.host.size());
-    req->insert(req->end(), target_.host.begin(), target_.host.end());
-    req->push_back((target_.port >> 8) & 0xFF);
-    req->push_back(target_.port & 0xFF);
-
-    boost::asio::async_write(upstream_socket_,
-                             boost::asio::buffer(*req),
-                             std::bind(&Connection::on_socks5_request_sent,
-                                       shared_from_this(),
-                                       std::placeholders::_1,
-                                       std::placeholders::_2));
-}
-
-void Connection::on_socks5_request_sent(boost::system::error_code ec, std::size_t) {
-    if (ec) {
-        close();
-        return;
-    }
-
-    boost::asio::async_read(upstream_socket_,
-                            upstream_buffer_.prepare(4),
-                            std::bind(&Connection::on_socks5_response_read,
-                                      shared_from_this(),
-                                      std::placeholders::_1,
-                                      std::placeholders::_2));
-}
-
-void Connection::on_socks5_response_read(boost::system::error_code ec, std::size_t length) {
-    if (ec) {
-        close();
-        return;
-    }
-    upstream_buffer_.commit(length);
-    upstream_buffer_.consume(length);
-
-    if (target_.is_connect) {
-        auto msg = std::make_shared<std::string>("HTTP/1.1 200 Connection Established\r\n\r\n");
-        boost::asio::async_write(client_socket_,
-                                 boost::asio::buffer(*msg),
-                                 std::bind(&Connection::on_handshake_write_client,
-                                           shared_from_this(),
-                                           std::placeholders::_1,
-                                           std::placeholders::_2));
-    }
-    else {
-        boost::asio::async_write(upstream_socket_,
-                                 boost::asio::buffer(initial_data_),
-                                 std::bind(&Connection::on_tunnel_write_upstream,
-                                           shared_from_this(),
-                                           std::placeholders::_1,
-                                           std::placeholders::_2));
-        start_tunnel();
-    }
-}
-
-void Connection::on_handshake_write_client(boost::system::error_code ec, std::size_t) {
-    if (ec) {
-        close();
-        return;
-    }
-    start_tunnel();
-}
-
-void Connection::start_tunnel() {
-    server_->proxy_pool().report(*current_proxy_, true);
-
-    client_socket_.async_read_some(boost::asio::buffer(tunnel_buffer_c2u_),
-                                   std::bind(&Connection::on_tunnel_read_client,
-                                             shared_from_this(),
-                                             std::placeholders::_1,
-                                             std::placeholders::_2));
-
-    upstream_socket_.async_read_some(boost::asio::buffer(tunnel_buffer_u2c_),
-                                     std::bind(&Connection::on_tunnel_read_upstream,
-                                               shared_from_this(),
-                                               std::placeholders::_1,
-                                               std::placeholders::_2));
-}
-
-void Connection::on_tunnel_read_client(boost::system::error_code ec, std::size_t length) {
-    if (ec) {
-        close();
-        return;
-    }
-
-    boost::asio::async_write(upstream_socket_,
-                             boost::asio::buffer(tunnel_buffer_c2u_, length),
-                             std::bind(&Connection::on_tunnel_write_upstream,
-                                       shared_from_this(),
-                                       std::placeholders::_1,
-                                       std::placeholders::_2));
-}
-
-void Connection::on_tunnel_write_upstream(boost::system::error_code ec, std::size_t) {
-    if (ec) {
-        close();
-        return;
-    }
-
-    client_socket_.async_read_some(boost::asio::buffer(tunnel_buffer_c2u_),
-                                   std::bind(&Connection::on_tunnel_read_client,
-                                             shared_from_this(),
-                                             std::placeholders::_1,
-                                             std::placeholders::_2));
-}
-
-void Connection::on_tunnel_read_upstream(boost::system::error_code ec, std::size_t length) {
-    if (ec) {
-        close();
-        return;
-    }
-
-    boost::asio::async_write(client_socket_,
-                             boost::asio::buffer(tunnel_buffer_u2c_, length),
-                             std::bind(&Connection::on_tunnel_write_client,
-                                       shared_from_this(),
-                                       std::placeholders::_1,
-                                       std::placeholders::_2));
-}
-
-void Connection::on_tunnel_write_client(boost::system::error_code ec, std::size_t) {
-    if (ec) {
-        close();
-        return;
-    }
-
-    upstream_socket_.async_read_some(boost::asio::buffer(tunnel_buffer_u2c_),
-                                     std::bind(&Connection::on_tunnel_read_upstream,
-                                               shared_from_this(),
-                                               std::placeholders::_1,
-                                               std::placeholders::_2));
 }
 
 }  // namespace Server
