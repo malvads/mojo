@@ -14,6 +14,6 @@ jobs:
     steps:
       - uses: malvads/slopper@main
         with:
-          ai-provider: 'groq'
-          groq-api-key: ${{ secrets.GROQ_API_KEY }}
+          ai-provider: 'gemini'
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
