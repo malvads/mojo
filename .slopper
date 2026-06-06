@@ -1,0 +1,30 @@
+vouched:
+  - malvads
+  - dependabot[bot]
+
+actions:
+  auto_close:
+    enabled: false
+    threshold: 9
+  auto_approve:
+    enabled: false
+    threshold: 2
+  auto_request_review:
+    enabled: false
+    threshold: 6
+    reviewers: []
+
+thresholds:
+  low: 2
+  medium: 5
+  high: 8
+
+ignore_paths:
+  - "*.md"
+  - "LICENSE"
+
+rules:
+  require_description: true
+  require_linked_issue: false
+  max_files_changed: 0
+  block_first_time_contributors: false
