@@ -11,8 +11,9 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write
     steps:
-      - uses: malvads/slopper@main
+      - uses: Sloppers/Slopper@main
         with:
           ai-provider: 'gemini'
           gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
