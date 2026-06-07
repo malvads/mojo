@@ -22,6 +22,12 @@
 
 Mojo is a high-performance, multithreaded web crawler tailored for creating high-quality datasets for Large Language Models (LLMs) and AI training. Written in modern C++20 with coroutines, it rapidly fetches entire websites and converts them into clean, structured Markdown, making it the ideal tool for building knowledge bases and RAG (Retrieval-Augmented Generation) pipelines.
 
+## Requirements
+
+- C++20 compatible compiler (GCC 11+, Clang 14+, MSVC 2022+)
+- CMake 3.20+
+- Boost 1.81+ (Beast, Asio, URL)
+
 ## Installation
 
 You can download the latest pre-compiled binaries from the [Releases](https://github.com/malvads/mojo/releases) page.
